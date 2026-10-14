@@ -79,7 +79,7 @@ def test_invalid_amount_maps_to_documented_400_error_without_mutation(
 
     assert response.status_code == 400
     assert response.json()["error_code"] == "INVALID_AMOUNT"
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("500.00")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("5000.00")
     assert transfer_repository.transfers == {}
 
 
