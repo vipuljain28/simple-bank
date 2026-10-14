@@ -241,12 +241,14 @@ End-to-end validation, performance checks, and cross-cutting concerns.
   - All existing transfer tests passing (backward compatibility verified)
   - No regressions in other features (auth, masking, etc.)
 
-- [ ] T025 [P] Verify Constitution compliance in `apps/api/tests/integration/test_constitution_minimum_balance.py`:
+- [x] T025 [P] Verify Constitution compliance in `apps/api/tests/integration/test_minimum_balance_compliance.py`:
   - Principle I (Exact Monetary Arithmetic): All amounts use Decimal, 2 places ✓
   - Principle II (Account Data Confidentiality): No full account numbers in error messages ✓
   - Principle III (Every Rule Has a Test): All minimum balance rules covered by tests ✓
   - Principle IV (Versioned API Contract): Error endpoint uses `/api/v1` ✓
   - Principle V (React Web Client Uses API): UI displays errors from API response ✓
+  - 16 compliance tests passing
+  - All Constitution principles verified and documented
 
 ---
 
