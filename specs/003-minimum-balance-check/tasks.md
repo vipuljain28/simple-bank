@@ -212,18 +212,22 @@ End-to-end validation, performance checks, and cross-cutting concerns.
   - Test US3: Verify error message includes all required details (balance, amount, min, masked account)
   - All 4 e2e tests passing (157 total tests passing)
 
-- [ ] T021 [P] Write performance test in `apps/api/tests/integration/test_minimum_balance_performance.py`:
+- [x] T021 [P] Write performance test in `apps/api/tests/integration/test_minimum_balance_performance.py`:
   - Measure response time for transfer that violates minimum balance (validation rejection should be fast)
+  - Measure response time for transfer that passes minimum balance (successful transfer should complete rapidly)
   - Target: <100ms for minimum balance validation and rejection
+  - Target: <200ms for full transfer processing including verification and database
   - Ensure configuration loading does not block request path
+  - Both performance tests passing
 
-- [ ] T022 [P] Write documentation in `docs/minimum-balance-check.md`:
+- [x] T022 [P] Write documentation in `docs/minimum-balance-check.md`:
   - Explain minimum balance policy: Rs 1,000 threshold, applies to all account types
   - Configuration section: `MIN_BALANCE_SAVINGS` environment variable, default 1,000.00
   - Error codes and handling: `MIN_BALANCE_REQUIRED` (400 Bad Request)
   - Example error responses (with masked account numbers)
-  - Examples: accepted transfer, rejected transfer
+  - Examples: accepted transfer, rejected transfer, configuration change impact
   - Troubleshooting: How to adjust minimum balance for testing
+  - Compliance & principles cross-reference
 
 - [ ] T023 Update project README or FEATURE-STATUS.md to mark minimum balance check as complete
 
