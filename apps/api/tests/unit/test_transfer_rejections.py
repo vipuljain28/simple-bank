@@ -81,29 +81,41 @@ def test_minimum_balance_violation_is_rejected_without_mutation(
 def test_daily_limit_uses_accepted_customer_transfers_for_ist_day(
     transfer_repository, verifier_factory, test_settings
 ):
-    # Create a prior transfer of 3000, leaving balance at 2000
+    # Need high balance for both prior and current transfers to stay above minimum
+    transfer_repository.accounts["000000001001"] = replace(
+        transfer_repository.accounts["000000001001"],
+        balance=Decimal("105000.00")
+    )
+    transfer_repository.accounts["000000002002"] = replace(
+        transfer_repository.accounts["000000002002"],
+        balance=Decimal("2000.00")
+    )
+    
+    # Create a prior transfer of 2000, leaving balance at 103000
     transfer_repository.transfers[("customer-001", "prior")]=TransferRecord(
         "txn-prior",
         "customer-001",
         "prior",
         "000000001001",
         "000000002002",
-        Decimal("3000.00"),
+        Decimal("2000.00"),
         "ACCEPTED",
         datetime(2026, 10, 6, 5, tzinfo=UTC),
     )
-    # Manually adjust balance to account for prior transfer (since we're not using execute)
+    # Manually adjust balance
     transfer_repository.accounts["000000001001"] = replace(
         transfer_repository.accounts["000000001001"],
-        balance=Decimal("2000.00")
+        balance=Decimal("103000.00")
     )
     transfer_repository.accounts["000000002002"] = replace(
         transfer_repository.accounts["000000002002"],
-        balance=Decimal("5000.00")
+        balance=Decimal("4000.00")
     )
     
-    # Now add a verifier for a transfer that, combined with prior, exceeds daily limit
-    amount = Decimal("97100.00")  # 3000 + 97100 = 100100 > 100000 limit
+    # Try transfer of 98100 making total 2000 + 98100 = 100100 > 100000 limit
+    # This will be rejected for daily limit, not for minimum balance
+    # (103000 - 98100 = 4900 > 1000 minimum)
+    amount = Decimal("98100.00")
     verifier = verifier_factory(
         customer_id="customer-001",
         request_id="req-reject",
@@ -124,14 +136,25 @@ def test_daily_limit_uses_accepted_customer_transfers_for_ist_day(
     with pytest.raises(DailyLimitExceeded):
         service.execute("customer-001", command)
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("2000.00")
-    assert transfer_repository.accounts["000000002002"].balance == Decimal("5000.00")
+    # Balances unchanged after failed transfer
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("103000.00")
+    assert transfer_repository.accounts["000000002002"].balance == Decimal("4000.00")
     assert len(transfer_repository.transfers) == 1
 
 
 def test_exactly_reaching_daily_limit_is_allowed(transfer_repository, verifier_factory, test_settings):
-    # Create a prior transfer of 99900, leaving balance at -94900
-    # This won't work, so let's use a smaller prior transfer
+    # Need high balance to support transfers + minimum balance requirement
+    # Start with 105000 to support 100000 in transfers + 1000 minimum + 4000 headroom
+    transfer_repository.accounts["000000001001"] = replace(
+        transfer_repository.accounts["000000001001"],
+        balance=Decimal("105000.00")
+    )
+    transfer_repository.accounts["000000002002"] = replace(
+        transfer_repository.accounts["000000002002"],
+        balance=Decimal("2000.00")
+    )
+    
+    # Create a prior transfer of 2000
     transfer_repository.transfers[("customer-001", "prior")] = TransferRecord(
         "txn-prior",
         "customer-001",
@@ -142,14 +165,14 @@ def test_exactly_reaching_daily_limit_is_allowed(transfer_repository, verifier_f
         "ACCEPTED",
         datetime(2026, 10, 6, 5, tzinfo=UTC),
     )
-    # Manually adjust balance
+    # Manually adjust balances after prior transfer
     transfer_repository.accounts["000000001001"] = replace(
         transfer_repository.accounts["000000001001"],
-        balance=Decimal("3000.00")
+        balance=Decimal("103000.00")  # 105000 - 2000
     )
     transfer_repository.accounts["000000002002"] = replace(
         transfer_repository.accounts["000000002002"],
-        balance=Decimal("4000.00")
+        balance=Decimal("4000.00")  # 2000 + 2000
     )
     
     # Transfer 98000, making total 2000 + 98000 = 100000 (exactly at limit)
@@ -173,8 +196,8 @@ def test_exactly_reaching_daily_limit_is_allowed(transfer_repository, verifier_f
 
     service.execute("customer-001", command)
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("1000.00")  # min balance reached!
-    assert transfer_repository.accounts["000000002002"].balance == Decimal("102000.00")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("5000.00")  # 103000 - 98000, leaves exactly 5000 above minimum
+    assert transfer_repository.accounts["000000002002"].balance == Decimal("102000.00")  # 4000 + 98000
     assert len(transfer_repository.transfers) == 2
 
 

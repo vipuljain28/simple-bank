@@ -54,3 +54,14 @@ class MinimumBalanceRequired(TransferError):
     message = "Transfer rejected: balance would fall below minimum."
 
 
+class NotFound(Exception):
+    """Exception raised when a requested resource is not found (404).
+    
+    Used for account lookup failures in mini statements and similar
+    endpoints. Returns 404 for both unauthorized access and truly missing
+    resources to prevent account enumeration attacks.
+    """
+    code = "NOT_FOUND"
+    status_code = 404
+    message = "The requested resource was not found."
+
