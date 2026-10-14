@@ -128,6 +128,15 @@ def transfer_repository() -> MemoryTransferRepository:
     return MemoryTransferRepository()
 
 
+@pytest.fixture(autouse=True)
+def _reset_minimum_balance_cache():
+    """Reset minimum balance cache before each test to avoid cache pollution."""
+    from simple_bank.config.minimum_balance import reset_cache
+    reset_cache()
+    yield
+    reset_cache()
+
+
 @pytest.fixture
 def test_settings() -> Settings:
     """Settings fixture for tests with default values."""
