@@ -9,8 +9,9 @@ from simple_bank.api.error_mapping import (
 from simple_bank.api.logging import configure_logging
 from simple_bank.api.routes.auth import router as auth_router
 from simple_bank.api.routes.transfers import router as transfers_router
+from simple_bank.api.routes.mini_statement import router as mini_statement_router
 from simple_bank.domain.auth_errors import AuthError
-from simple_bank.domain.errors import TransferError
+from simple_bank.domain.errors import TransferError, NotFound
 from simple_bank.persistence.auth_repository import SqlAlchemyAuthRepository
 from simple_bank.persistence.database import create_database_engine, create_session_factory
 from simple_bank.persistence.models import Base
@@ -20,6 +21,7 @@ from simple_bank.security.context import CustomerContextProvider, DatabaseCustom
 from simple_bank.security.verification import RejectingTransferVerifier
 from simple_bank.services.auth_service import CustomerAuthService
 from simple_bank.services.transfer_service import TransferService
+from simple_bank.services.mini_statement_service import MiniStatementService
 from simple_bank.settings import Settings
 
 
