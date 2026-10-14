@@ -121,7 +121,7 @@ class MiniStatementService:
     def _calculate_balance_after_transfer(
         self,
         account_number: str,
-        transfer: Transfer
+        transfer: Transaction
     ) -> Decimal:
         """Calculate account balance immediately after a specific transfer.
         
