@@ -51,7 +51,28 @@ class Forbidden(TransferError):
 class MinimumBalanceRequired(TransferError):
     code = "MIN_BALANCE_REQUIRED"
     status_code = 400
-    message = "Transfer rejected: balance would fall below minimum."
+    
+    def __init__(
+        self,
+        current_balance: "Decimal | None" = None,
+        amount: "Decimal | None" = None,
+        min_balance: "Decimal | None" = None,
+        masked_account: str | None = None,
+    ):
+        from decimal import Decimal
+        
+        if (current_balance is not None and amount is not None and 
+            min_balance is not None and masked_account is not None):
+            balance_after = current_balance - amount
+            self.message = (
+                f"Transfer rejected: Account balance must remain at least Rs {min_balance}. "
+                f"Current balance: Rs {current_balance}, "
+                f"Amount requested: Rs {amount}, "
+                f"Balance after: Rs {balance_after}. "
+                f"(Account: {masked_account})"
+            )
+        else:
+            self.message = "Transfer rejected: balance would fall below minimum."
 
 
 class NotFound(Exception):

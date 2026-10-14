@@ -5,6 +5,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from simple_bank.config.minimum_balance import get_min_balance_threshold
+from simple_bank.domain.account_numbers import mask_account_number
 from simple_bank.domain.errors import (
     AccountInactive,
     DailyLimitExceeded,
@@ -78,7 +79,12 @@ class TransferService:
             min_balance_threshold = get_min_balance_threshold(self._settings)
             from simple_bank.services.minimum_balance_service import is_balance_valid
             if not is_balance_valid(sender.balance, command.amount, min_balance_threshold):
-                raise MinimumBalanceRequired()
+                raise MinimumBalanceRequired(
+                    current_balance=sender.balance,
+                    amount=command.amount,
+                    min_balance=min_balance_threshold,
+                    masked_account=mask_account_number(command.from_account),
+                )
 
             now = self._clock()
             if now.tzinfo is None or now.utcoffset() is None:
