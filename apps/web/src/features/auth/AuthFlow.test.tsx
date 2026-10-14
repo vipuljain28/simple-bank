@@ -35,7 +35,7 @@ describe("AuthApplication", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.mocked(getSession).mockResolvedValue(anonymousSession);
     vi.mocked(login).mockResolvedValue({
       authenticated: true,
@@ -94,7 +94,7 @@ describe("AuthApplication", () => {
 
     expect(await screen.findByRole("heading", { name: /verify a contact/i })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /send email code/i }));
-    await user.type(await screen.findByLabelText(/four-digit verification code/i), "1234");
+    await user.type(await screen.findByLabelText(/4-digit verification code/i), "1234");
     await user.click(screen.getByRole("button", { name: /verify contact/i }));
 
     expect(await screen.findByRole("heading", { name: /accounts/i })).toBeInTheDocument();

@@ -1,6 +1,6 @@
 # Quickstart: Customer Authentication and Account Onboarding
 
-This guide defines the local validation path for the planned authentication feature. Registration, sign-in, and transfers require PostgreSQL. Contact delivery remains an injected interface; automated tests use synthetic fake providers.
+This guide defines the local validation path for the authentication feature. PostgreSQL is used for persistent development and integration tests. A disposable in-memory SQLite mode is also available for UI smoke tests. Contact delivery remains an injected interface; the optional local email mock uses a fixed code and cannot be enabled outside schema-creating SQLite mode.
 
 ## Prerequisites
 
@@ -10,6 +10,7 @@ This guide defines the local validation path for the planned authentication feat
 - `AUTH_CODE_PEPPER` supplied through a local secret manager or process environment; do not commit the value.
 - The feature migrations applied in order: `apps/api/migrations/versions/001_transfer_schema.sql`, `apps/api/migrations/versions/002_customer_auth.sql`, then `apps/api/migrations/versions/003_auth_sessions.sql`.
 - For manual email/SMS verification, configured trusted delivery providers. No production provider is selected by this feature. Tests use recording fake providers and synthetic codes.
+- For disposable UI smoke tests only, set `DATABASE_URL=sqlite://`, `SQLITE_CREATE_SCHEMA=true`, and `MOCK_CONTACT_VERIFICATION=true`. The email mock accepts `1234` without sending email; it is rejected unless schema-creating SQLite mode is active. Mobile verification and password-reset delivery still require a provider.
 - Replace every value in `.env.example` with reviewed synthetic placeholders before using it as local configuration; do not load it while it contains credential-like values.
 - Synthetic identities and account data only. New accounts open at `Rs 0.00`; use a separately seeded synthetic funded sender when testing a successful transfer.
 
@@ -46,11 +47,15 @@ Integration tests are permitted only against an empty localhost database named `
 In separate terminals:
 
 ```powershell
+$env:DATABASE_URL = "sqlite://"
+$env:SQLITE_CREATE_SCHEMA = "true"
+$env:MOCK_CONTACT_VERIFICATION = "true"
+$env:AUTH_CODE_PEPPER = "synthetic-local-only-pepper"
 uv run --project apps/api -- uvicorn simple_bank.api.app:app --host 127.0.0.1 --port 8000
 npm --prefix apps/web run dev -- --host 127.0.0.1
 ```
 
-The Vite development proxy sends `/api` to the local FastAPI server. Set the local database URL and delivery-provider adapters before expecting registration or sign-in to succeed. If required production configuration is absent, the API must fail closed rather than accept a client-supplied customer identity.
+The Vite development proxy sends `/api` to the local FastAPI server. With the local mock enabled, email verification displays that code `1234` should be entered; no email is sent. SQLite is in-memory and all data is lost when the API stops. New accounts have a zero balance, and transfers remain unavailable until a trusted verification adapter is configured. Do not enable this mock outside local synthetic testing.
 
 ## End-to-End Scenarios
 
@@ -58,7 +63,7 @@ The Vite development proxy sends `/api` to the local FastAPI server. Set the loc
 2. Try a suffix with 9 digits, a non-digit, an existing account number, duplicate username, and duplicate normalized email. Verify each rejection creates no partial records; a mobile number shared with another profile is allowed.
 3. Open the initial application screen while signed out and verify a clearly labeled Sign In action is visible. Verify `GET /api/v1/auth/session` returns HTTP 200 with `authenticated: false` when no session exists. Sign in with the valid synthetic username and password; verify the API sets an HttpOnly session cookie, returns a CSRF token, and exposes the authenticated transfer screen. Incorrect credentials return the same generic failure for unknown and known usernames.
 4. Verify that five consecutive failed sign-ins trigger a generic 15-minute pause, after which valid credentials can succeed without support intervention.
-5. Request and confirm one email or mobile challenge. Verify a six-digit code expires after 10 minutes, allows at most five attempts, is accepted once, and that a successful verification of either contact enables transfer eligibility.
+5. Request and confirm one email or mobile challenge. In persistent mode, verify a six-digit code expires after 10 minutes, allows at most five attempts, is accepted once, and that a successful verification of either contact enables transfer eligibility. In disposable SQLite mock mode, email verification accepts the fixed code `1234`; no email is sent.
 6. Verify a session stops authorizing protected operations after five minutes idle or one hour absolute lifetime. Sign-out and password reset revoke sessions immediately.
 7. Request password recovery through an already verified contact. Verify responses do not reveal whether an account exists; a valid reset code expires after 15 minutes, allows at most five attempts, changes the password, revokes sessions, and does not automatically sign the customer in.
 8. Choose a protected transfer action while signed out and verify sign-in appears before any transfer submission. A direct `POST /api/v1/transfers` without a session returns HTTP 401. Sign in, then verify an unverified customer receives the contact-verification-required outcome; after verifying either contact, verify the request is evaluated under the session customer rather than a request-supplied customer ID.

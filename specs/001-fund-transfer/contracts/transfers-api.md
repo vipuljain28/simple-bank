@@ -59,7 +59,7 @@ Malformed input returns HTTP `400`; missing or invalid verification returns HTTP
 |------------|---------|
 | `INVALID_AMOUNT` | Amount is missing, malformed, non-positive, or not represented to two decimal places. |
 | `INSUFFICIENT_BALANCE` | Sender's available balance is below the amount. |
-| `DAILY_LIMIT_EXCEEDED` | Accepted transfers plus this amount would exceed Rs 1,00,000 for the customer's IST day. |
+| `DAILY_LIMIT_EXCEEDED` | Accepted transfers from this sending account plus this amount would exceed its IST-day cap: Rs 50,000 before it is 30×24 hours old, otherwise Rs 1,00,000. |
 | `SAME_ACCOUNT` | Sender and recipient identify the same account. |
 | `ACCOUNT_INACTIVE` | Sender or recipient is inactive. |
 | `REQUEST_ID_CONFLICT` | Request ID was previously accepted for different sender, recipient, or amount. |
@@ -78,4 +78,6 @@ For an already accepted request ID, the API compares the authenticated customer 
 - Retrying an accepted request with the same request ID and transfer details returns the original response and changes neither balance again.
 - Reusing an accepted request ID with different transfer details returns `REQUEST_ID_CONFLICT`.
 - Missing, malformed, non-positive, or over-precision amounts return `INVALID_AMOUNT`.
-- Concurrent requests cannot overspend the sender or cause the customer's accepted daily total to exceed Rs 1,00,000.
+- An account younger than 30×24 hours cannot exceed Rs 50,000 in accepted transfers for its IST day; an account at least 30×24 hours old cannot exceed Rs 1,00,000.
+- Transfers from two accounts owned by the same customer are counted against separate account-level daily limits.
+- Concurrent requests cannot overspend the sender or cause the sending account's accepted daily total to exceed its age-based cap.

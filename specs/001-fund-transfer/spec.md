@@ -20,6 +20,11 @@
 - Q: If a transfer is accepted but its response is lost, how should a repeated request avoid applying the transfer twice? → A: Require a unique request ID; a repeated ID with the same request returns the original outcome without applying the transfer again.
 - Q: Must customers pass an additional verification step before each transfer, beyond being signed in? → A: Require an additional verification step for every transfer.
 
+### Session 2026-10-14
+
+- Q: How is the 30-day account-age boundary determined? → A: Use elapsed time from the account opening timestamp; an account receives the Rs 50,000 cap while it is less than 30×24 hours old and the Rs 1,00,000 cap at or after 30×24 hours.
+- Q: How are daily limits applied when a customer has multiple accounts of different ages? → A: Apply and aggregate the daily limit per sending account; transfers from separate accounts have separate daily totals and limits.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Transfer Funds (Priority: P1)
@@ -34,6 +39,10 @@ A customer transfers money from their savings account to a different Simple Bank
 
 1. **Given** a customer has an active savings account with sufficient funds and the recipient account is active and different, **When** the customer submits a positive amount within the daily limit, **Then** the transfer is accepted and the customer receives a confirmation.
 2. **Given** a transfer has been accepted, **When** the customer views its outcome, **Then** it includes the unique transaction identifier assigned to the saved transfer.
+3. **Given** the sending account was opened less than 30×24 hours ago and its accepted transfers for the current India Standard Time day total Rs 49,000, **When** the customer submits Rs 1,000, **Then** the transfer is accepted at the Rs 50,000 account-level daily cap.
+4. **Given** the sending account was opened less than 30×24 hours ago and its accepted transfers for the current India Standard Time day total Rs 49,000, **When** the customer submits Rs 1,000.01, **Then** the transfer is rejected for exceeding the Rs 50,000 account-level daily cap.
+5. **Given** the sending account is at least 30×24 hours old and its accepted transfers for the current India Standard Time day total Rs 99,000, **When** the customer submits Rs 1,000, **Then** the transfer is accepted at the Rs 1,00,000 account-level daily cap.
+6. **Given** an account reaches 30×24 hours since opening, **When** a transfer is evaluated at or after that instant, **Then** its applicable account-level daily cap is Rs 1,00,000.
 
 ### User Story 2 - Understand a Rejected Transfer (Priority: P1)
 
@@ -64,7 +73,10 @@ A customer receives the outcome of a submitted transfer quickly enough to know w
 
 - An amount of Rs 0 or less is rejected because the amount must be greater than Rs 0.
 - An amount equal to the sender's available balance is permitted; an amount greater than that balance is rejected.
-- A transfer that would bring the customer's total transfers for the current India Standard Time day to exactly Rs 1,00,000 is permitted; one that would exceed the cap is rejected. The daily total resets at midnight India Standard Time.
+- For a sending account less than 30×24 hours old, a transfer that brings that account's current India Standard Time day total to exactly Rs 50,000 is permitted; one that would exceed it is rejected.
+- For a sending account at least 30×24 hours old, a transfer that brings that account's current India Standard Time day total to exactly Rs 1,00,000 is permitted; one that would exceed it is rejected.
+- Each sending account has its own daily total and applicable cap; transfers from other accounts owned by the same customer do not contribute to that account's daily total.
+- The daily total for each account resets at midnight India Standard Time. The applicable cap changes at the exact instant the account reaches 30×24 hours since opening.
 - A transfer to the sender's own account is rejected, even if that account is otherwise active.
 - A transfer is rejected if either the sending or receiving account is inactive.
 - If both balance changes cannot complete together, neither account balance changes and the transfer is not accepted.
@@ -85,9 +97,16 @@ A customer receives the outcome of a submitted transfer quickly enough to know w
 
    **Acceptance Criteria**: **Given** the sender's available balance is less than the submitted amount, **When** the transfer is evaluated, **Then** it is rejected for insufficient balance. **Given** the sender's available balance equals or exceeds the amount, **When** the other transfer rules are satisfied, **Then** this balance rule does not prevent the transfer.
 
-4. **FR-004 - Customer daily limit**: A customer MUST NOT transfer more than Rs 1,00,000 in total during one day. The daily total MUST be calculated from midnight to midnight India Standard Time.
+4. **FR-004 - Account-age daily limit**: A sending account opened less than 30×24 hours before transfer evaluation MUST NOT transfer more than Rs 50,000 in total during that India Standard Time day. A sending account opened at least 30×24 hours before evaluation MUST NOT transfer more than Rs 1,00,000 in total during that day. Daily totals MUST be aggregated separately for each sending account from midnight to midnight India Standard Time; transfers from other accounts owned by the customer MUST NOT count toward that account's total. The applicable limit is determined by the sending account's age when the transfer is evaluated.
 
-   **Acceptance Criteria**: **Given** the customer's India Standard Time day transfer total plus the submitted amount is exactly Rs 1,00,000 or less, **When** the transfer is evaluated, **Then** this daily-limit rule does not prevent it. **Given** that total would exceed Rs 1,00,000, **When** the transfer is evaluated, **Then** it is rejected for exceeding the daily limit. **Given** India Standard Time reaches midnight, **When** the next day begins, **Then** the customer's daily transfer total is calculated for the new day.
+   **Acceptance Criteria**:
+   - **Given** the sending account is less than 30×24 hours old and its accepted transfers for the India Standard Time day plus the submitted amount total exactly Rs 50,000 or less, **When** the transfer is evaluated, **Then** this daily-limit rule does not prevent it.
+   - **Given** the sending account is less than 30×24 hours old and its daily total plus the submitted amount would exceed Rs 50,000, **When** the transfer is evaluated, **Then** it is rejected for exceeding the daily limit.
+   - **Given** the sending account is at least 30×24 hours old and its daily total plus the submitted amount totals exactly Rs 1,00,000 or less, **When** the transfer is evaluated, **Then** this daily-limit rule does not prevent it.
+   - **Given** the sending account is at least 30×24 hours old and its daily total plus the submitted amount would exceed Rs 1,00,000, **When** the transfer is evaluated, **Then** it is rejected for exceeding the daily limit.
+   - **Given** the sending account's age is exactly 30×24 hours, **When** the transfer is evaluated, **Then** the Rs 1,00,000 daily cap applies.
+   - **Given** a customer has more than one sending account, **When** a daily total is calculated, **Then** only accepted transfers from the specific sending account are counted.
+   - **Given** India Standard Time reaches midnight, **When** the next day begins, **Then** the daily total for each sending account is calculated for the new day.
 
 5. **FR-005 - Different recipient account**: The recipient account MUST NOT be the same account as the sender account.
 
@@ -160,7 +179,7 @@ Rejected requests return an `error_code` and a human-readable `message`. Rejecte
 | Error code | Meaning |
 |------------|---------|
 | `INSUFFICIENT_BALANCE` | The sender's available balance is less than the requested amount. |
-| `DAILY_LIMIT_EXCEEDED` | The requested amount would bring the customer's total transfers for the India Standard Time day above Rs 1,00,000. |
+| `DAILY_LIMIT_EXCEEDED` | The requested amount would bring the sending account's India Standard Time day total above Rs 50,000 if it is less than 30×24 hours old, or above Rs 1,00,000 otherwise. |
 | `SAME_ACCOUNT` | The sender and recipient account numbers identify the same account. |
 | `ACCOUNT_INACTIVE` | The sender or recipient account is inactive. |
 | `INVALID_AMOUNT` | The amount is missing, not a valid monetary amount, or is not greater than Rs 0. |
@@ -195,6 +214,7 @@ For an already accepted `request_id`, the API returns the original successful re
 | `customer_id` | Identifier of the customer who owns the account. |
 | `balance` | Account balance in Rs, rounded to two decimal places. |
 | `status` | Account state: `ACTIVE` or `INACTIVE`. |
+| `opened_at` | Account opening timestamp, used to determine whether the Rs 50,000 or Rs 1,00,000 daily cap applies. |
 
 ### Transaction
 
@@ -216,26 +236,32 @@ The account references below are synthetic and masked. Each case assumes verific
 |---|------|----|-------------|--------------------|-----------------|
 | 1 | `XXXX1001` | `XXXX2002` | `0.00` | Both accounts active; sufficient balance; daily total remains within limit. | Rejected with `INVALID_AMOUNT`; no transaction is saved. |
 | 2 | `XXXX1001` | `XXXX2002` | `250.00` | Sender balance is Rs 100.00; both accounts active; daily total remains within limit. | Rejected with `INSUFFICIENT_BALANCE`; no transaction is saved. |
-| 3 | `XXXX1001` | `XXXX2002` | `200.00` | Sender balance is Rs 500.00; transfers already total Rs 99,900.00 for the IST day; both accounts active. | Rejected with `DAILY_LIMIT_EXCEEDED`; no transaction is saved. |
+| 3 | `XXXX1001` | `XXXX2002` | `200.00` | Sending account is 30 days old; its transfers already total Rs 99,900.00 for the IST day; both accounts active. | Rejected with `DAILY_LIMIT_EXCEEDED`; no transaction is saved. |
 | 4 | `XXXX1001` | `XXXX1001` | `10.00` | Sender account active with sufficient balance; daily total remains within limit. | Rejected with `SAME_ACCOUNT`; no transaction is saved. |
 | 5 | `XXXX1001` | `XXXX2002` | `10.00` | Recipient account is inactive; sender has sufficient balance; daily total remains within limit. | Rejected with `ACCOUNT_INACTIVE`; no transaction is saved. |
+| 6 | `XXXX3001` | `XXXX2002` | `1,000.00` | Sending account was opened 29×24 hours ago; its IST-day total is Rs 49,000; sufficient balance. | Accepted; the account total becomes Rs 50,000. |
+| 7 | `XXXX3001` | `XXXX2002` | `1,000.01` | Sending account was opened 29×24 hours ago; its IST-day total is Rs 49,000; sufficient balance. | Rejected with `DAILY_LIMIT_EXCEEDED`; no transaction is saved. |
+| 8 | `XXXX4001` | `XXXX2002` | `1,000.00` | Sending account was opened exactly 30×24 hours ago; its IST-day total is Rs 99,000; sufficient balance. | Accepted; the account total becomes Rs 1,00,000. |
+| 9 | `XXXX3001` | `XXXX2002` | `1,000.00` | The customer's other sending account has already transferred Rs 50,000 today; this account's own IST-day total is Rs 49,000 and it is 29 days old. | Accepted; only this sending account's total is used. |
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: Every tested transfer with a positive amount, sufficient sender balance, a daily total at or below Rs 1,00,000, two different active accounts, and a valid customer outcome is accepted.
-- **SC-002**: Every tested transfer violating any one of the documented amount, balance, daily-limit, account-identity, or account-status rules is rejected.
+- **SC-001**: Every tested transfer with a positive amount, sufficient sender balance, a per-sending-account daily total at or below the applicable account-age cap, two different active accounts, and valid verification is accepted.
+- **SC-002**: Every tested transfer violating any one of the documented amount, balance, account-age daily-limit, account-identity, or account-status rules is rejected.
 - **SC-003**: Every accepted transfer is saved with a unique transaction identifier and matching balance changes; a failed transfer leaves neither a saved transfer nor a balance change.
 - **SC-004**: The customer can see an accepted or rejected outcome within one second of submission.
 - **SC-005**: Customers can identify the reason for a rejected transfer from its presented outcome.
 - **SC-006**: Every accepted transfer reduces the sender's balance and increases the recipient's balance by the same amount; no rejected transfer changes either balance.
 - **SC-007**: Every accepted transfer has successful additional verification tied to that customer and exact request before either account balance changes.
+- **SC-008**: Test cases immediately below and exactly at 30×24 hours after account opening select the Rs 50,000 and Rs 1,00,000 account-level daily caps respectively, and transfers from other accounts do not affect either account's daily total.
 
 ## Assumptions
 
 - The customer is using the Simple Bank web app and is authorized to initiate transfers from their savings account.
 - The transfer recipient is another Simple Bank account.
 - Monetary amounts are expressed in Rs, as in the source requirement.
-- "Per day" means a customer's transfers are aggregated from midnight to midnight India Standard Time.
+- "Per day" means accepted transfers from the same sending account are aggregated from midnight to midnight India Standard Time; another account's transfers are not included.
+- Account age is elapsed time from its opening timestamp. An account is subject to the Rs 50,000 cap before 30×24 hours have elapsed and the Rs 1,00,000 cap at or after that instant.
 - A response includes the accepted or rejected outcome and is presented within one second of submission.

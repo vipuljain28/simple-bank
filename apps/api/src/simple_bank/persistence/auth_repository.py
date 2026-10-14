@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import select, update
@@ -120,8 +120,14 @@ class SqlAlchemyAuthRepository:
                 return None
             auth_session, profile = result
             if (
-                (now - auth_session.last_activity_at).total_seconds() >= 300
-                or (now - auth_session.created_at).total_seconds() >= 3600
+                (
+                    self._as_utc(now) - self._as_utc(auth_session.last_activity_at)
+                ).total_seconds()
+                >= 300
+                or (
+                    self._as_utc(now) - self._as_utc(auth_session.created_at)
+                ).total_seconds()
+                >= 3600
             ):
                 auth_session.revoked_at = now
                 return None
@@ -325,8 +331,16 @@ class SqlAlchemyAuthRepository:
             mobile_number=row.mobile_number,
             username=row.username,
             password_hash=row.password_hash,
-            email_verified_at=row.email_verified_at,
-            mobile_verified_at=row.mobile_verified_at,
+            email_verified_at=(
+                SqlAlchemyAuthRepository._as_utc(row.email_verified_at)
+                if row.email_verified_at is not None
+                else None
+            ),
+            mobile_verified_at=(
+                SqlAlchemyAuthRepository._as_utc(row.mobile_verified_at)
+                if row.mobile_verified_at is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -337,10 +351,14 @@ class SqlAlchemyAuthRepository:
             purpose=ChallengePurpose[row.purpose],
             channel=ContactChannel(row.channel),
             token_digest=row.token_digest,
-            created_at=row.created_at,
-            expires_at=row.expires_at,
+            created_at=SqlAlchemyAuthRepository._as_utc(row.created_at),
+            expires_at=SqlAlchemyAuthRepository._as_utc(row.expires_at),
             attempt_count=row.attempt_count,
-            consumed_at=row.consumed_at,
+            consumed_at=(
+                SqlAlchemyAuthRepository._as_utc(row.consumed_at)
+                if row.consumed_at is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -348,5 +366,15 @@ class SqlAlchemyAuthRepository:
         return LoginThrottleState(
             normalized_username=row.normalized_username,
             consecutive_failures=row.consecutive_failures,
-            blocked_until=row.blocked_until,
+            blocked_until=(
+                SqlAlchemyAuthRepository._as_utc(row.blocked_until)
+                if row.blocked_until is not None
+                else None
+            ),
         )
+
+    @staticmethod
+    def _as_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)

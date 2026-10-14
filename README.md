@@ -12,7 +12,7 @@ savings account; verifying either email or mobile is required before transfers.
 
 - The transfer amount must be greater than Rs 0.
 - The sender must have enough balance to cover the transfer.
-- A customer may transfer no more than Rs 1,00,000 per day.
+- Each sending account may transfer up to Rs 50,000 per India Standard Time day while it is less than 30×24 hours old, and Rs 1,00,000 per day at or after that threshold. Daily totals are separate per account.
 - The sender and recipient accounts must be different.
 - Both accounts must be active.
 - Each transfer must be saved with a unique transaction ID.

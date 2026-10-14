@@ -1,67 +1,62 @@
-# Research: Fund Transfer
+# Research: Account-Age Daily Transfer Limits
 
-**Date**: 2026-10-07
+**Date**: 2026-10-14
+**Feature**: [spec.md](spec.md)
 
 ## Repository Findings
 
-- The workspace contains requirements and Spec Kit artifacts, but no application source, dependency manifests, database configuration, or test suite to extend.
-- The user selected Python 3.12, uv, FastAPI, PostgreSQL, and a separate service class for transfer rules.
-- The constitution additionally requires a React/Vite client, `/api/v1` routes, exact monetary arithmetic, account-number masking, and automated tests for every rule.
-- The active spec requires accepted-transfer idempotency, per-transfer additional verification, and atomic persistence of the accepted transaction and both balance updates.
+- The repository already contains the FastAPI transfer route, a dependency-injected `TransferService`, SQLAlchemy persistence, PostgreSQL migrations, React/Vite UI, and unit/API/integration tests.
+- The current service enforces one Rs 1,00,000 daily cap per customer. The transfer repository sums transactions by `customer_id`; the account model has no opening timestamp.
+- Accepted transactions already record both `customer_id` and `from_account`, so a per-sending-account daily aggregate needs no transaction schema change.
+- Account records are stored in PostgreSQL and may predate this policy. Their original opening time is not present in the current schema.
+- The updated specification resolves the policy: an account younger than 30×24 hours has a Rs 50,000 cap; at or after 30×24 hours it has a Rs 1,00,000 cap. Age uses elapsed time; totals are separate per sending account and reset at IST midnight.
+- The product owner selected that existing accounts should be treated as at least 30 days old, retaining the Rs 1,00,000 cap.
 
 ## Decisions
 
-### API and Web Client
+### Age Threshold
 
-**Decision**: Use a Python 3.12 FastAPI application managed by uv, with a separate React/Vite customer client. Keep the client dependent on the versioned REST API only.
+**Decision**: Compare the transfer evaluation instant with the account's time-zone-aware opening instant. Use Rs 50,000 if elapsed age is less than 30×24 hours; otherwise use Rs 1,00,000.
 
-**Rationale**: This follows the user's selected backend stack and the constitution's client/API boundary. FastAPI exposes the required REST contract and generates an OpenAPI description for contract validation.
+**Rationale**: This is the explicit product clarification and handles the exact boundary without calendar-day ambiguity.
 
-**Alternatives considered**: A Node.js API or a client that accesses persistence directly. The former conflicts with the explicit stack request; the latter violates the constitution.
+**Alternatives considered**: Calendar-date counting was explicitly not selected.
 
-### Transfer Rule Service
+### Daily Aggregation Scope
 
-**Decision**: Implement a distinct `TransferService` class. Keep HTTP parsing and response mapping in the FastAPI route; inject repository/session and additional-verification dependencies into the service. Put the rule evaluation and transfer orchestration behind the service's public operation so it can be unit tested without FastAPI or PostgreSQL.
+**Decision**: Sum accepted transfer amounts where the transaction's sending account is the account under evaluation and the transaction timestamp falls within the current IST calendar day. Apply the limit belonging to that sender account.
 
-**Rationale**: The user explicitly requires a separate, easy-to-unit-test service class. Dependency injection allows deterministic tests for every business rule, duplicate request, and verification result.
+**Rationale**: The product owner selected separate per-sending-account limits, so another account owned by the same customer cannot consume this account's allowance.
 
-**Alternatives considered**: Inline validation in FastAPI endpoint functions or SQLAlchemy model hooks. Those approaches couple business rules to transport or persistence and make focused unit tests harder.
+**Alternatives considered**: One customer-wide daily aggregate was explicitly not selected.
 
-### PostgreSQL and Monetary Values
+### Existing Account Backfill
 
-**Decision**: Use PostgreSQL, SQLAlchemy 2, psycopg 3, Python `Decimal`, and exact numeric columns. Accept amounts as decimal strings with exactly two fractional digits as required by the API contract; do not use binary floating-point.
+**Decision**: Add a non-null, time-zone-aware opening timestamp to accounts. Backfill existing rows to a timestamp at least 30×24 hours before the migration instant so the standard Rs 1,00,000 cap applies. New accounts receive their actual opening instant.
 
-**Rationale**: PostgreSQL transactions and row locks support atomic balance changes, transaction persistence, request-ID uniqueness, and daily-cap enforcement. Exact numeric arithmetic satisfies the constitution.
+**Rationale**: Existing account opening dates are unavailable, and the product owner directed that legacy accounts retain the standard cap. The migration makes that explicit rather than assigning an unverifiable historical date.
 
-**Alternatives considered**: In-memory storage or non-transactional writes. These cannot reliably preserve the required all-or-nothing behavior across concurrent requests.
+**Alternatives considered**: Treating existing accounts as newly opened and restricting them to Rs 50,000 was not selected.
 
-### Processing and Idempotency
+### Rule Ownership and Persistence
 
-**Decision**: In `TransferService`, check an existing accepted request ID for the authenticated customer before verification. If the transfer details match, return its stored response without requiring another proof or applying changes. If the ID belongs to different transfer details, return `REQUEST_ID_CONFLICT`. For a new request, verify the proof, then validate rules and write the request association, transaction, sender debit, and recipient credit in one PostgreSQL transaction. Lock the customer row for daily-limit serialization and lock account rows in a consistent order.
+**Decision**: Keep age-based cap selection in `TransferService`. Extend the account snapshot/repository contract to provide opening time and a per-account daily total. Update the SQLAlchemy account model and add an additive migration; preserve existing transactional account locks and atomic balance/transaction writes.
 
-**Rationale**: The order supports the spec's lost-response retry flow without reusing a one-time verification proof. Row locking and unique constraints prevent concurrent requests from bypassing the cap, overspending, or creating duplicate transfers.
+**Rationale**: This reuses the established service and repository boundaries, enabling deterministic unit tests for threshold instants and PostgreSQL integration tests for transaction aggregation and concurrency.
 
-**Alternatives considered**: Checking idempotency after verification can reject a valid retry when the proof is one-time. Separate balance and transaction writes can leave partial results. Both conflict with the spec.
+**Alternatives considered**: Embedding the policy in HTTP handlers or aggregating client-side would split financial rule ownership and cannot safely enforce concurrent requests.
 
-### Additional Verification
+### Client Contract
 
-**Decision**: Depend on an injected `TransferVerifier` interface that verifies proof for the authenticated customer and exact transfer details. Use a deterministic fake verifier in unit and integration tests; connect a real identity provider through the interface when the host integration is selected.
+**Decision**: Keep the transfer request/response shape unchanged. Replace the current fixed Rs 1,00,000 UI claim with concise guidance that explains the Rs 50,000 cap for accounts under 30×24 hours, the Rs 1,00,000 cap from that age onward, and per-sending-account aggregation. The backend remains authoritative for deciding the limit and returning rejections.
 
-**Rationale**: The spec requires an additional verification step for each new transfer but does not name a provider or proof protocol. An interface permits a testable service without inventing a provider-specific contract.
+**Rationale**: The current form accepts account numbers directly and has no trusted account-age lookup. The spec does not require adding account metadata to transfer requests or introducing a lookup endpoint. Guidance can explain both cases without trusting client-provided account age.
 
-**Alternatives considered**: Trusting a request boolean or caller-supplied customer ID would not constitute trusted verification. Hard-coding an unspecified provider would exceed the available requirements.
-
-### Error Mapping
-
-**Decision**: Keep the spec's business error codes. Map malformed request/amount to HTTP 400, verification failure to 403, a request-ID conflict to 409, and other well-formed business-rule rejections to 422. Never include full account numbers in response messages or logs.
-
-**Rationale**: This gives clients stable, distinct outcomes while preserving the specified error codes and confidentiality rule.
-
-**Alternatives considered**: Returning HTTP 200 for all failures or exposing database exceptions. Both obscure outcome semantics and can leak internals.
+**Alternatives considered**: Allowing the client to submit account age or a selected cap would make a financial limit caller-controlled. Adding a new account-lookup API is unnecessary to satisfy the specified transfer behavior.
 
 ## Resolved Planning Unknowns
 
-- The backend language, version, package manager, framework, and database are explicitly selected by the user.
-- The repository has no application layout; the proposed `apps/api` and `apps/web` structure is greenfield.
-- No production verification provider or proof format is specified. The plan defines an adapter boundary and synthetic test verifier; production use requires a trusted host identity integration.
-- Throughput, availability, recovery, and retention targets remain outside the feature scope; the plan retains the specified one-second response goal and tests concurrent financial invariants.
+- Backend, persistence, and client stack are established by the repository.
+- Age definition, exact boundary, per-sending-account aggregation, and legacy-account treatment are clarified in the spec and product-owner decisions.
+- No new external provider or API field is required.
+- The existing one-second response target and atomicity/idempotency requirements remain in effect.

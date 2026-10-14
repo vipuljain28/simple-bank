@@ -10,7 +10,7 @@ Represents the authenticated Simple Bank customer who initiates the transfer.
 
 Relationships:
 - A customer owns one or more accounts.
-- A customer's accepted transfers for the current India Standard Time day count toward the Rs 1,00,000 daily cap.
+- Accepted transfers are aggregated separately for each sending account and India Standard Time day; another account's transfers do not count toward that account's cap.
 
 ## Account
 
@@ -23,6 +23,7 @@ Represents a Simple Bank account. `account_type` is an internal field proposed t
 | `balance` | Exact decimal | Rs balance at two decimal places; must not become negative as a result of a transfer. |
 | `status` | Enum | `ACTIVE` or `INACTIVE`; both sender and recipient must be active. |
 | `account_type` | Enum (proposed) | Sender must be `SAVINGS`; recipient account type is not otherwise restricted by the spec. |
+| `opened_at` | Time-zone-aware timestamp | Account opening instant. Determines the sender account's daily cap: Rs 50,000 before 30×24 hours of elapsed age, then Rs 1,00,000. Existing accounts are backfilled as at least 30×24 hours old so their cap remains Rs 1,00,000; new accounts store their actual opening instant. |
 
 Relationships:
 - One customer owns one or more accounts.
@@ -46,9 +47,10 @@ Represents an accepted transfer. Rejected submissions are returned as API errors
 ## Invariants and Processing
 
 - Validate sender ownership, savings type, account status, distinct accounts, positive amount, available balance, and daily total before acceptance.
-- Calculate the customer's daily total from accepted transactions on the India Standard Time calendar day containing the request.
+- Calculate the sending account's daily total from its accepted transactions on the India Standard Time calendar day containing the request. Do not include transactions from the customer's other accounts.
+- Select the sending account's daily cap from its age when the transfer is evaluated: Rs 50,000 before 30×24 hours since opening and Rs 1,00,000 at or after that point.
 - Check accepted request IDs before verifying a retry; compare authenticated customer, sender, recipient, and amount. A matching accepted request returns its original outcome; mismatched transfer details produce `REQUEST_ID_CONFLICT`.
 - For a new request, verify additional proof for the authenticated customer and exact transfer details before beginning financial mutations. The real verification provider is supplied through an adapter; tests use a synthetic verifier.
-- Serialize operations for a customer while checking and applying the daily limit; lock sender and recipient account rows in a consistent order.
+- Serialize operations that can affect the same sending account's daily total; lock sender and recipient account rows in a consistent order.
 - Within one database transaction, debit the sender, credit the recipient by the same amount, save the transaction, and bind the customer-scoped request ID. Commit all changes together or roll all of them back.
 - Rejected requests do not change account balances or create transaction records/IDs.
