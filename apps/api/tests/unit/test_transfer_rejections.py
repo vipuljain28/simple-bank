@@ -10,6 +10,7 @@ from simple_bank.domain.errors import (
     Forbidden,
     InsufficientBalance,
     InvalidAmount,
+    MinimumBalanceRequired,
     SameAccount,
     VerificationRequired,
 )
@@ -17,7 +18,7 @@ from simple_bank.domain.transfers import TransferCommand, TransferRecord
 from simple_bank.services.transfer_service import TransferService
 
 
-def _service(repository, verifier_factory, amount, *, proof="synthetic-verification-proof"):
+def _service(repository, verifier_factory, test_settings, amount, *, proof="synthetic-verification-proof"):
     verifier = verifier_factory(
         customer_id="customer-001",
         request_id="req-reject",
@@ -28,23 +29,24 @@ def _service(repository, verifier_factory, amount, *, proof="synthetic-verificat
     return TransferService(
         repository,
         verifier,
+        settings=test_settings,
         clock=lambda: datetime(2026, 10, 6, 10, tzinfo=UTC),
     ), verifier, TransferCommand(
         "req-reject", proof, "000000001001", "000000002002", amount
     )
 
 
-def _assert_unchanged(repository, sender_balance=Decimal("500.00")):
+def _assert_unchanged(repository, sender_balance=Decimal("5000.00"), recipient_balance=Decimal("2000.00")):
     assert repository.accounts["000000001001"].balance == sender_balance
-    assert repository.accounts["000000002002"].balance == Decimal("100.00")
+    assert repository.accounts["000000002002"].balance == recipient_balance
     assert repository.transfers == {}
 
 
 @pytest.mark.parametrize("amount", [Decimal("0.00"), Decimal("-1.00"), Decimal("1.0")])
 def test_invalid_amount_is_rejected_without_mutation(
-    transfer_repository, verifier_factory, amount
+    transfer_repository, verifier_factory, test_settings, amount
 ):
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    service, _, command = _service(transfer_repository, verifier_factory, test_settings, amount)
 
     with pytest.raises(InvalidAmount):
         service.execute("customer-001", command)
@@ -53,10 +55,10 @@ def test_invalid_amount_is_rejected_without_mutation(
 
 
 def test_insufficient_balance_is_rejected_without_mutation(
-    transfer_repository, verifier_factory
+    transfer_repository, verifier_factory, test_settings
 ):
-    amount = Decimal("600.00")
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    amount = Decimal("10000.00")
+    service, _, command = _service(transfer_repository, verifier_factory, test_settings, amount)
 
     with pytest.raises(InsufficientBalance):
         service.execute("customer-001", command)
@@ -64,52 +66,119 @@ def test_insufficient_balance_is_rejected_without_mutation(
     _assert_unchanged(transfer_repository)
 
 
-def test_daily_limit_uses_accepted_customer_transfers_for_ist_day(
-    transfer_repository, verifier_factory
+def test_minimum_balance_violation_is_rejected_without_mutation(
+    transfer_repository, verifier_factory, test_settings
 ):
+    amount = Decimal("4001.00")
+    service, _, command = _service(transfer_repository, verifier_factory, test_settings, amount)
+
+    with pytest.raises(MinimumBalanceRequired):
+        service.execute("customer-001", command)
+
+    _assert_unchanged(transfer_repository)
+
+
+def test_daily_limit_uses_accepted_customer_transfers_for_ist_day(
+    transfer_repository, verifier_factory, test_settings
+):
+    # Create a prior transfer of 3000, leaving balance at 2000
     transfer_repository.transfers[("customer-001", "prior")]=TransferRecord(
         "txn-prior",
         "customer-001",
         "prior",
         "000000001001",
         "000000002002",
-        Decimal("99900.00"),
+        Decimal("3000.00"),
         "ACCEPTED",
         datetime(2026, 10, 6, 5, tzinfo=UTC),
     )
-    amount = Decimal("200.00")
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    # Manually adjust balance to account for prior transfer (since we're not using execute)
+    transfer_repository.accounts["000000001001"] = replace(
+        transfer_repository.accounts["000000001001"],
+        balance=Decimal("2000.00")
+    )
+    transfer_repository.accounts["000000002002"] = replace(
+        transfer_repository.accounts["000000002002"],
+        balance=Decimal("5000.00")
+    )
+    
+    # Now add a verifier for a transfer that, combined with prior, exceeds daily limit
+    amount = Decimal("97100.00")  # 3000 + 97100 = 100100 > 100000 limit
+    verifier = verifier_factory(
+        customer_id="customer-001",
+        request_id="req-reject",
+        from_account="000000001001",
+        to_account="000000002002",
+        amount=amount,
+    )
+    service = TransferService(
+        transfer_repository,
+        verifier,
+        settings=test_settings,
+        clock=lambda: datetime(2026, 10, 6, 10, tzinfo=UTC),
+    )
+    command = TransferCommand(
+        "req-reject", "synthetic-verification-proof", "000000001001", "000000002002", amount
+    )
 
     with pytest.raises(DailyLimitExceeded):
         service.execute("customer-001", command)
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("500.00")
-    assert transfer_repository.accounts["000000002002"].balance == Decimal("100.00")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("2000.00")
+    assert transfer_repository.accounts["000000002002"].balance == Decimal("5000.00")
     assert len(transfer_repository.transfers) == 1
 
 
-def test_exactly_reaching_daily_limit_is_allowed(transfer_repository, verifier_factory):
+def test_exactly_reaching_daily_limit_is_allowed(transfer_repository, verifier_factory, test_settings):
+    # Create a prior transfer of 99900, leaving balance at -94900
+    # This won't work, so let's use a smaller prior transfer
     transfer_repository.transfers[("customer-001", "prior")] = TransferRecord(
         "txn-prior",
         "customer-001",
         "prior",
         "000000001001",
         "000000002002",
-        Decimal("99900.00"),
+        Decimal("2000.00"),
         "ACCEPTED",
         datetime(2026, 10, 6, 5, tzinfo=UTC),
     )
-    amount = Decimal("100.00")
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    # Manually adjust balance
+    transfer_repository.accounts["000000001001"] = replace(
+        transfer_repository.accounts["000000001001"],
+        balance=Decimal("3000.00")
+    )
+    transfer_repository.accounts["000000002002"] = replace(
+        transfer_repository.accounts["000000002002"],
+        balance=Decimal("4000.00")
+    )
+    
+    # Transfer 98000, making total 2000 + 98000 = 100000 (exactly at limit)
+    amount = Decimal("98000.00")
+    verifier = verifier_factory(
+        customer_id="customer-001",
+        request_id="req-reject",
+        from_account="000000001001",
+        to_account="000000002002",
+        amount=amount,
+    )
+    service = TransferService(
+        transfer_repository,
+        verifier,
+        settings=test_settings,
+        clock=lambda: datetime(2026, 10, 6, 10, tzinfo=UTC),
+    )
+    command = TransferCommand(
+        "req-reject", "synthetic-verification-proof", "000000001001", "000000002002", amount
+    )
 
     service.execute("customer-001", command)
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("400.00")
-    assert transfer_repository.accounts["000000002002"].balance == Decimal("200.00")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("1000.00")  # min balance reached!
+    assert transfer_repository.accounts["000000002002"].balance == Decimal("102000.00")
     assert len(transfer_repository.transfers) == 2
 
 
-def test_daily_limit_resets_at_ist_midnight(transfer_repository, verifier_factory):
+def test_daily_limit_resets_at_ist_midnight(transfer_repository, verifier_factory, test_settings):
     transfer_repository.transfers[("customer-001", "prior")] = TransferRecord(
         "txn-prior",
         "customer-001",
@@ -131,6 +200,7 @@ def test_daily_limit_resets_at_ist_midnight(transfer_repository, verifier_factor
     service = TransferService(
         transfer_repository,
         verifier,
+        settings=test_settings,
         clock=lambda: datetime(2026, 10, 6, 18, 30, tzinfo=UTC),
     )
 
@@ -145,12 +215,12 @@ def test_daily_limit_resets_at_ist_midnight(transfer_repository, verifier_factor
         ),
     )
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("300.00")
-    assert transfer_repository.accounts["000000002002"].balance == Decimal("300.00")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("4800.00")
+    assert transfer_repository.accounts["000000002002"].balance == Decimal("2200.00")
     assert len(transfer_repository.transfers) == 2
 
 
-def test_same_account_is_rejected_without_mutation(transfer_repository, verifier_factory):
+def test_same_account_is_rejected_without_mutation(transfer_repository, verifier_factory, test_settings):
     amount = Decimal("10.00")
     verifier = verifier_factory(
         customer_id="customer-001",
@@ -159,7 +229,7 @@ def test_same_account_is_rejected_without_mutation(transfer_repository, verifier
         to_account="000000001001",
         amount=amount,
     )
-    service = TransferService(transfer_repository, verifier)
+    service = TransferService(transfer_repository, verifier, settings=test_settings)
     command = TransferCommand(
         "req-reject", "synthetic-verification-proof", "000000001001", "000000001001", amount
     )
@@ -172,14 +242,14 @@ def test_same_account_is_rejected_without_mutation(transfer_repository, verifier
 
 @pytest.mark.parametrize("which", ["sender", "recipient"])
 def test_inactive_account_is_rejected_without_mutation(
-    transfer_repository, verifier_factory, which
+    transfer_repository, verifier_factory, test_settings, which
 ):
     account_number = "000000001001" if which == "sender" else "000000002002"
     transfer_repository.accounts[account_number] = replace(
         transfer_repository.accounts[account_number], status="INACTIVE"
     )
     amount = Decimal("10.00")
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    service, _, command = _service(transfer_repository, verifier_factory, test_settings, amount)
 
     with pytest.raises(AccountInactive):
         service.execute("customer-001", command)
@@ -192,7 +262,7 @@ def test_inactive_account_is_rejected_without_mutation(
     [("another-customer", "SAVINGS"), ("customer-001", "CURRENT")],
 )
 def test_sender_ownership_and_savings_requirements_are_forbidden(
-    transfer_repository, verifier_factory, customer_id, sender_type
+    transfer_repository, verifier_factory, test_settings, customer_id, sender_type
 ):
     transfer_repository.accounts["000000001001"] = replace(
         transfer_repository.accounts["000000001001"],
@@ -200,7 +270,7 @@ def test_sender_ownership_and_savings_requirements_are_forbidden(
         account_type=sender_type,
     )
     amount = Decimal("10.00")
-    service, _, command = _service(transfer_repository, verifier_factory, amount)
+    service, _, command = _service(transfer_repository, verifier_factory, test_settings, amount)
 
     with pytest.raises(Forbidden):
         service.execute("customer-001", command)
@@ -209,11 +279,11 @@ def test_sender_ownership_and_savings_requirements_are_forbidden(
 
 
 def test_invalid_verification_is_rejected_without_mutation(
-    transfer_repository, verifier_factory
+    transfer_repository, verifier_factory, test_settings
 ):
     amount = Decimal("10.00")
     service, verifier, command = _service(
-        transfer_repository, verifier_factory, amount, proof="invalid-proof"
+        transfer_repository, verifier_factory, test_settings, amount, proof="invalid-proof"
     )
 
     with pytest.raises(VerificationRequired):

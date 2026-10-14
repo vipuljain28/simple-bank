@@ -21,16 +21,17 @@ from simple_bank.domain.auth import (
     RegisteredAccount,
     RegistrationResult,
 )
+from simple_bank.settings import Settings
 
 
 class MemoryTransferRepository:
     def __init__(self) -> None:
         self.accounts = {
             "000000001001": AccountSnapshot(
-                "000000001001", "customer-001", Decimal("500.00"), "ACTIVE", "SAVINGS"
+                "000000001001", "customer-001", Decimal("5000.00"), "ACTIVE", "SAVINGS"
             ),
             "000000002002": AccountSnapshot(
-                "000000002002", "customer-002", Decimal("100.00"), "ACTIVE", "CURRENT"
+                "000000002002", "customer-002", Decimal("2000.00"), "ACTIVE", "CURRENT"
             ),
         }
         self.transfers: dict[tuple[str, str], TransferRecord] = {}
@@ -125,6 +126,15 @@ def verifier_factory() -> Callable[..., SyntheticTransferVerifier]:
 @pytest.fixture
 def transfer_repository() -> MemoryTransferRepository:
     return MemoryTransferRepository()
+
+
+@pytest.fixture
+def test_settings() -> Settings:
+    """Settings fixture for tests with default values."""
+    return Settings(
+        database_url="sqlite:///:memory:",
+        min_balance_savings=Decimal("1000.00"),
+    )
 
 
 class FrozenClock:

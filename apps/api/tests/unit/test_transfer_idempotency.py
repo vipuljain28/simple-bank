@@ -9,7 +9,7 @@ from simple_bank.services.transfer_service import TransferService
 
 
 def test_matching_retry_returns_original_without_reverification(
-    transfer_repository, verifier_factory
+    transfer_repository, verifier_factory, test_settings
 ):
     amount = Decimal("125.50")
     verifier = verifier_factory(
@@ -22,6 +22,7 @@ def test_matching_retry_returns_original_without_reverification(
     service = TransferService(
         transfer_repository,
         verifier,
+        settings=test_settings,
         clock=lambda: datetime(2026, 10, 6, 10, tzinfo=UTC),
     )
     command = TransferCommand(
@@ -42,12 +43,12 @@ def test_matching_retry_returns_original_without_reverification(
 
     assert retry == original
     assert len(verifier.calls) == 1
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("374.50")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("4874.50")
     assert len(transfer_repository.transfers) == 1
 
 
 def test_reusing_request_id_with_changed_details_is_rejected(
-    transfer_repository, verifier_factory
+    transfer_repository, verifier_factory, test_settings
 ):
     amount = Decimal("125.50")
     verifier = verifier_factory(
@@ -57,7 +58,7 @@ def test_reusing_request_id_with_changed_details_is_rejected(
         to_account="000000002002",
         amount=amount,
     )
-    service = TransferService(transfer_repository, verifier)
+    service = TransferService(transfer_repository, verifier, settings=test_settings)
     command = TransferCommand(
         "req-001",
         "synthetic-verification-proof",
@@ -79,5 +80,5 @@ def test_reusing_request_id_with_changed_details_is_rejected(
             ),
         )
 
-    assert transfer_repository.accounts["000000001001"].balance == Decimal("374.50")
+    assert transfer_repository.accounts["000000001001"].balance == Decimal("4874.50")
     assert len(transfer_repository.transfers) == 1
