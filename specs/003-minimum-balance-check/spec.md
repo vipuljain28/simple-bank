@@ -1,4 +1,4 @@
-# Feature Specification: Minimum Balance Enforcement for Savings Accounts
+# Feature Specification: Minimum Balance Enforcement for All Accounts
 
 **Feature Branch**: _not created_
 
@@ -8,9 +8,17 @@
 
 **Input**: User description: "Block withdrawal if balance goes below Rs 1,000. Savings accounts must keep a minimum balance of Rs 1,000. A withdrawal or transfer is rejected if the balance after it would be less than Rs 1,000. Error code: MIN_BALANCE_REQUIRED. The minimum balance amount must come from configuration, not hard-coded."
 
+## Clarifications
+
+### Session 2026-10-14
+
+- Q: Where should the account number appear in error responses? → A: Error message should show the masked account number (XXXX1234) when referencing the account, consistent with Constitution Principle II (Account Data Confidentiality).
+- Q: What is the exact configuration parameter name and location? → A: Parameter name: `MIN_BALANCE_SAVINGS` (Decimal, default: 1000.00); defined as environment variable or in `settings.py` with other configuration defaults.
+- Q: Should minimum balance apply only to savings accounts or all account types? → A: Apply to ALL account types; do not filter by account type. All accounts must maintain the minimum balance threshold.
+
 ## Summary
 
-Savings accounts in Simple Bank must maintain a minimum balance of Rs 1,000. Any withdrawal or transfer that would reduce an account's balance below this threshold must be rejected with error code `MIN_BALANCE_REQUIRED`. The minimum balance amount must be configurable to support future policy changes.
+All accounts in Simple Bank must maintain a minimum balance of Rs 1,000. Any withdrawal or transfer that would reduce an account's balance below this threshold must be rejected with error code `MIN_BALANCE_REQUIRED`. The minimum balance amount must be configurable to support future policy changes.
 
 ---
 
@@ -70,20 +78,21 @@ A customer receives a clear explanation when a transfer is rejected due to minim
 
 ## Functional Requirements
 
-1. **Minimum Balance Validation**: Before accepting any debit transaction (transfer or withdrawal), the system must verify that the resulting balance would not fall below the configured minimum balance.
+1. **Minimum Balance Validation**: Before accepting any debit transaction (transfer or withdrawal), the system must verify that the resulting balance would not fall below the configured minimum balance. This applies to ALL account types without exception.
 
-2. **Configurable Threshold**: The minimum balance amount must be read from application configuration (environment variables or configuration files), not hard-coded.
+2. **Configurable Threshold**: The minimum balance amount must be read from application configuration via the parameter `MIN_BALANCE_SAVINGS` (Decimal, default: 1000.00 rupees). This parameter must be defined as an environment variable or in `settings.py` to match existing configuration patterns.
 
 3. **Rejection with Error Code**: If a transaction would violate the minimum balance requirement, it must be rejected with error code `MIN_BALANCE_REQUIRED`.
 
 4. **Decimal Precision**: All balance calculations must use the `Decimal` type to ensure accuracy with monetary amounts; floating-point arithmetic must not be used.
 
-5. **Clear Error Message**: When a transaction is rejected due to minimum balance enforcement, the error response must include:
+5. **Clear Error Message with Masked Account**: When a transaction is rejected due to minimum balance enforcement, the error response must include:
    - The error code `MIN_BALANCE_REQUIRED`
    - A user-friendly message explaining that the account must maintain the minimum balance
    - The configured minimum balance amount (for clarity)
+   - The masked account number (e.g., XXXX1234) showing only the last four digits, per Constitution Principle II
 
-6. **Applicable to All Debit Transactions**: The minimum balance check must be enforced for all transaction types that reduce account balance (transfers, withdrawals, etc.).
+6. **Applicable to All Debit Transactions**: The minimum balance check must be enforced for all transaction types that reduce account balance (transfers, withdrawals, etc.), regardless of account type.
 
 7. **Zero and Negative Amounts**: Transfers of zero or negative amounts are already rejected by other rules; the minimum balance check applies to valid positive amounts only.
 
@@ -109,7 +118,8 @@ A customer receives a clear explanation when a transfer is rejected due to minim
 
 ### Account
 - **balance**: Decimal (current account balance in rupees)
-- **account_type**: String (e.g., "savings") — minimum balance applies to savings accounts
+- **account_id**: String (account identifier)
+- (Note: no account_type filtering; minimum balance applies to all accounts)
 
 ### Transfer (or Withdrawal)
 - **from_account_id**: String (account being debited)
@@ -117,11 +127,11 @@ A customer receives a clear explanation when a transfer is rejected due to minim
 - **balance_after**: Decimal (calculated: current_balance - amount)
 
 ### Configuration
-- **MIN_BALANCE_SAVINGS**: Decimal (default: 1000.00, in rupees) — minimum balance for savings accounts
+- **MIN_BALANCE_SAVINGS**: Decimal (default: 1000.00, in rupees) — minimum balance threshold for all account types
 
 ### Error Response
 - **error_code**: String (value: "MIN_BALANCE_REQUIRED")
-- **message**: String (user-friendly explanation)
+- **message**: String (user-friendly explanation, includes masked account number per Constitution Principle II)
 
 ---
 
@@ -129,9 +139,9 @@ A customer receives a clear explanation when a transfer is rejected due to minim
 
 1. **Decimal Type**: The application already uses Python's `Decimal` type for balance storage and calculations (verified in existing fund transfer feature).
 
-2. **Configuration System**: The application has an existing configuration system (environment variables or config files) that can be extended; minimum balance value will be added to this system.
+2. **Configuration System**: The application has an existing configuration system (environment variables or `settings.py`) that can be extended; the `MIN_BALANCE_SAVINGS` parameter will be added to this system.
 
-3. **Savings Account Distinction**: Accounts have a type field (e.g., "savings", "current"); minimum balance applies to savings accounts. Other account types may have different rules or no minimum (out of scope for this feature).
+3. **Universal Application**: Minimum balance check applies to ALL account types without account_type filtering. No distinction is made between savings, current, or other account types.
 
 4. **Existing Transfer Validation**: The fund transfer feature already validates transfers (sufficient balance, account status, daily limits, etc.); minimum balance check is an additional validation layer.
 
@@ -139,23 +149,27 @@ A customer receives a clear explanation when a transfer is rejected due to minim
 
 6. **Currency**: All amounts are in Indian Rupees (INR); no currency conversion is needed.
 
+7. **Account Number Masking**: Existing transfer error responses already mask account numbers per Constitution Principle II; the minimum balance error will follow the same masking pattern.
+
 ---
 
 ## Constraints & Dependencies
 
 1. **Depends On**: Fund Transfer feature (001) — minimum balance check is a validation rule applied during transfer processing.
 
-2. **Scope**: Applies to debit transactions only; credit transactions and deposits do not check minimum balance.
+2. **Scope**: Applies to all debit transactions only; credit transactions and deposits do not check minimum balance.
 
-3. **Account Scope**: Minimum balance applies per account (not per customer); a customer with multiple accounts has independent minimum balance requirements for each account.
+3. **Account Scope**: Minimum balance applies universally to all accounts (no account type filtering); a customer with multiple accounts has the same minimum balance requirement for each account.
 
-4. **Backward Compatibility**: Existing valid transfers (those that would have passed without this feature) must remain valid; this feature only rejects previously-accepted transfers that would fall below the new minimum.
+4. **Universal Enforcement**: The minimum balance threshold applies to all account types equally. No exceptions or account-type-specific minimums.
+
+5. **Backward Compatibility**: Existing valid transfers (those that would have passed without this feature) must remain valid; this feature only rejects previously-accepted transfers that would fall below the new minimum.
 
 ---
 
 ## Out of Scope
 
-- Minimum balance requirements for checking accounts or other account types
+- Different minimum balance thresholds for different account types (all accounts use the same `MIN_BALANCE_SAVINGS` threshold)
 - Withdrawal feature (only transfers are in scope; withdrawal API may reuse this validation if implemented)
 - Minimum balance grace periods or temporary exceptions
 - Notifications to customers about approaching minimum balance
