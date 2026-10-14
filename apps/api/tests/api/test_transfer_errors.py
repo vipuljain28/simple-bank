@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from hashlib import sha256
 
 from fastapi.testclient import TestClient
 import pytest
@@ -13,7 +14,12 @@ from simple_bank.domain.transfers import TransferRecord
 
 class FixedCustomerContext:
     def resolve(self, request):
-        return AuthenticatedCustomer("customer-001")
+        return AuthenticatedCustomer(
+            "customer-001",
+            session_id="session-demo",
+            email_verified=True,
+            csrf_token_digest=sha256(b"synthetic-transfer-csrf").hexdigest(),
+        )
 
 
 def _client(repository, verifier_factory):
@@ -30,7 +36,15 @@ def _client(repository, verifier_factory):
         transfer_service=service,
         customer_context_provider=FixedCustomerContext(),
     )
-    return TestClient(app)
+    client = TestClient(
+        app,
+        headers={
+            "Origin": "http://testserver",
+            "X-CSRF-Token": "synthetic-transfer-csrf",
+        },
+    )
+    client.cookies.set("csrf_token", "synthetic-transfer-csrf")
+    return client
 
 
 def _payload(**changes):

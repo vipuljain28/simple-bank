@@ -17,6 +17,13 @@ class TransferRequest(BaseModel):
     to_account: str = Field(min_length=1, max_length=64)
     amount: Decimal
 
+    @field_validator("from_account", "to_account")
+    @classmethod
+    def validate_account_identifier(cls, value: str) -> str:
+        if not value.isascii() or not value.isdigit():
+            raise ValueError("Account identifiers must contain digits only.")
+        return value
+
     @field_validator("amount", mode="before")
     @classmethod
     def parse_amount(cls, value: object) -> Decimal:

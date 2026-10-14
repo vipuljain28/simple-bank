@@ -1,0 +1,111 @@
+name: Deploy API to ECS dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/deploy-api-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: simple-bank-api-dev
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      ECS_CONTAINER_NAME: ${{ vars.ECS_CONTAINER_NAME }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Run API unit and route tests
+        working-directory: apps/api
+        run: uv run pytest tests/unit tests/api
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          for name in AWS_REGION AWS_ROLE_ARN ECR_REPOSITORY ECS_CLUSTER ECS_SERVICE ECS_TASK_FAMILY ECS_CONTAINER_NAME; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing GitHub Actions repository variable: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        id: image
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          image_uri="${ECR_REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}"
+          docker build --file apps/api/Dockerfile --tag "$image_uri" apps/api
+          docker push "$image_uri"
+          echo "uri=$image_uri" >> "$GITHUB_OUTPUT"
+
+      - name: Register task definition and deploy
+        shell: bash
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
+        run: |
+          task_definition="$(aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition \
+            --output json)"
+          echo "$task_definition" | jq -e --arg name "$ECS_CONTAINER_NAME" \
+            'any(.containerDefinitions[]; .name == $name)' >/dev/null
+          task_definition_file="$(mktemp)"
+          trap 'rm -f "$task_definition_file"' EXIT
+          echo "$task_definition" | jq \
+            --arg name "$ECS_CONTAINER_NAME" \
+            --arg image "$IMAGE_URI" \
+            '(.containerDefinitions[] | select(.name == $name).image) = $image
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)' \
+            > "$task_definition_file"
+          task_definition_arn="$(aws ecs register-task-definition \
+            --cli-input-json "file://$task_definition_file" \
+            --query taskDefinition.taskDefinitionArn \
+            --output text)"
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$task_definition_arn" \
+            --desired-count 1
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"

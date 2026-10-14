@@ -38,7 +38,7 @@ A new customer registers with their profile and login details, chooses a numeric
 
 ### User Story 2 - Sign In and Use Protected Services (Priority: P1)
 
-A registered customer signs in with a username and password and can use account and transfer actions as that authenticated customer.
+A registered customer can find sign-in from the application's initial screen, signs in with a username and password, and can use account and transfer actions as that authenticated customer.
 
 **Why this priority**: A trusted identity must reach transfer rules; valid customers should not be rejected as anonymous.
 
@@ -52,6 +52,7 @@ A registered customer signs in with a username and password and can use account 
 4. **Given** a customer signs out, **When** they next request a protected action, **Then** they must authenticate again.
 5. **Given** a customer cannot remember their password, **When** they prove control of a contact method already verified on their profile and set a replacement password, **Then** the password is reset, existing sessions are ended, and they must sign in with the replacement password.
 6. **Given** five consecutive sign-in attempts fail for a username, **When** another sign-in is attempted during the next 15 minutes, **Then** sign-in is temporarily rate-limited with a generic response and the account is not permanently locked.
+7. **Given** a visitor opens the application while signed out, **When** they view the initial screen or choose to transfer, **Then** a clearly labeled Sign In action is available. **Given** sign-in succeeds, **When** the customer continues, **Then** the authenticated transfer screen is shown and no transfer is submitted before authentication.
 
 ---
 
@@ -117,9 +118,9 @@ A signed-in customer can transfer only from their own active savings account to 
 
    **Acceptance Criteria**: **Given** a customer has an active session, **When** they sign out, remain inactive for 5 minutes, or reach 1 hour since sign-in, **Then** subsequent protected actions are rejected until they sign in again.
 
-8. **FR-008 - Trusted customer identity**: The identity used for account ownership and transfer rules MUST come from the authenticated session, not from a customer identifier supplied by the browser.
+8. **FR-008 - Trusted customer identity**: The identity used for account ownership and transfer rules MUST come from the authenticated session. The request body MUST NOT accept a customer identifier; a request that includes one is rejected as malformed.
 
-   **Acceptance Criteria**: **Given** a customer is signed in, **When** a request includes a different customer identifier, **Then** the system ignores that value and evaluates the request for the signed-in customer only.
+   **Acceptance Criteria**: **Given** a customer is signed in, **When** a request includes a `customer_id` field, **Then** the system rejects the request as malformed and makes no account or balance changes. **Given** a request omits `customer_id`, **When** it is evaluated, **Then** ownership and transfer rules use only the authenticated session identity.
 
 9. **FR-009 - Database-backed account existence**: Before a transfer is evaluated, the system MUST verify that the submitted sender and recipient identifiers match existing account records; valid formatting alone MUST NOT establish account existence.
 
@@ -149,6 +150,10 @@ A signed-in customer can transfer only from their own active savings account to 
 
    **Acceptance Criteria**: **Given** five consecutive sign-in attempts for a username have failed, **When** another attempt is made within 15 minutes, **Then** the system rejects it with a generic authentication response. **Given** the 15-minute pause has elapsed, **When** the customer submits valid credentials, **Then** sign-in can succeed without support intervention.
 
+16. **FR-016 - Reachable sign-in entry point**: The application MUST make sign-in discoverable from its initial signed-out screen and provide a sign-in path before any protected transfer action. After successful sign-in, the customer MUST be able to reach the authenticated transfer screen; the system MUST NOT submit transfers using an anonymous identity.
+
+   **Acceptance Criteria**: **Given** a signed-out visitor opens the application, **When** the initial screen is displayed, **Then** a clearly labeled Sign In action is visible. **Given** the visitor chooses a protected transfer action, **When** no valid session exists, **Then** the sign-in screen is shown before transfer submission. **Given** the customer signs in successfully, **When** authentication completes, **Then** the authenticated transfer screen is available and a transfer request is sent only after the customer submits it.
+
 ### Key Entities *(include if feature involves data)*
 
 - **Customer**: A person with a unique username and email address, password credential, name, and mobile number; mobile numbers may be shared by multiple customers.
@@ -167,6 +172,7 @@ A signed-in customer can transfer only from their own active savings account to 
 - **SC-006**: No tested response or operational log contains a full account number or password.
 - **SC-007**: 100% of tested password resets require control of a previously verified contact, end existing sessions, and require a fresh sign-in.
 - **SC-008**: 100% of tested sequences with five consecutive failed sign-in attempts pause further sign-in for 15 minutes without permanently locking the account.
+- **SC-009**: 100% of tested signed-out journeys let customers find sign-in from the initial screen and reach the authenticated transfer screen after successful sign-in without an anonymous transfer submission.
 
 ## Assumptions
 
@@ -176,4 +182,5 @@ A signed-in customer can transfer only from their own active savings account to 
 - A newly created account starts with a zero balance; funding or deposit workflows are outside this feature.
 - Email and mobile values are format-validated; ownership verification of either one is sufficient before transfer access is enabled.
 - Account numbers are identifiers, not monetary values; they are compared as complete digit sequences so leading zeroes are preserved.
+- Transfer request bodies never supply customer identity; the existing fund-transfer API contract rejects unexpected identity fields and derives identity from the authenticated session.
 - The existing fund-transfer limits, additional per-transfer verification, atomic balance updates, and error semantics remain governed by `specs/001-fund-transfer/spec.md`.

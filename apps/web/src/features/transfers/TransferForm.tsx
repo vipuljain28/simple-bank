@@ -22,7 +22,15 @@ function maskedPreview(accountNumber: string): string {
   return accountNumber ? `XXXX${accountNumber.slice(-4)}` : "XXXX----";
 }
 
-export default function TransferForm() {
+interface TransferFormProps {
+  onUnauthenticated?: () => void;
+  onContactVerificationRequired?: () => void;
+}
+
+export default function TransferForm({
+  onUnauthenticated,
+  onContactVerificationRequired,
+}: TransferFormProps) {
   const [requestId, setRequestId] = useState(createRequestId);
   const [senderAccount, setSenderAccount] = useState("");
   const [recipientAccount, setRecipientAccount] = useState("");
@@ -48,6 +56,18 @@ export default function TransferForm() {
       setRetryRequest(null);
       setOutcome({ kind: "accepted", transfer });
     } catch (error) {
+      if (error instanceof TransferApiError && error.status === 401) {
+        setRetryRequest(null);
+        setOutcome({ kind: "idle" });
+        onUnauthenticated?.();
+        return;
+      }
+      if (error instanceof TransferApiError && error.code === "CONTACT_VERIFICATION_REQUIRED") {
+        setRetryRequest(null);
+        setOutcome({ kind: "idle" });
+        onContactVerificationRequired?.();
+        return;
+      }
       if (error instanceof TransferApiError && error.status < 500) {
         setRetryRequest(null);
         setOutcome({ kind: "rejected", message: error.message });

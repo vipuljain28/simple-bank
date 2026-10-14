@@ -64,7 +64,9 @@ specs/002-account-auth-onboarding/
 ```text
 apps/
 ├── api/
+│   ├── migrations/versions/001_transfer_schema.sql  # Existing base account/transfer schema
 │   ├── migrations/versions/002_customer_auth.sql
+│   ├── migrations/versions/003_auth_sessions.sql
 │   ├── src/simple_bank/
 │   │   ├── api/routes/auth.py
 │   │   ├── api/routes/transfers.py                 # Existing route; add verification eligibility
@@ -83,6 +85,7 @@ apps/
 │       ├── api/test_auth_routes.py
 │       └── integration/test_customer_registration.py
 └── web/
+  ├── src/App.tsx                                  # Public sign-in/registration entry and authenticated transfer view
   ├── src/features/auth/
   │   ├── RegistrationForm.tsx
   │   ├── SignInForm.tsx

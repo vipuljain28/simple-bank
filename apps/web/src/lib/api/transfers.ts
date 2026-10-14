@@ -1,3 +1,5 @@
+import { getCsrfHeaders } from "./auth";
+
 export interface TransferRequest {
   request_id: string;
   verification_proof: string;
@@ -35,7 +37,8 @@ export class TransferApiError extends Error {
 export async function submitTransfer(payload: TransferRequest): Promise<TransferResponse> {
   const response = await fetch("/api/v1/transfers", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...getCsrfHeaders() },
     body: JSON.stringify(payload),
   });
   const body = (await response.json()) as TransferResponse | TransferErrorBody;

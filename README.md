@@ -4,6 +4,10 @@ Simple Bank is a fund-transfer application with a FastAPI service and a React/Vi
 client. It transfers funds from a customer's savings account to another active
 Simple Bank account.
 
+Customer registration and username/password authentication are implemented under
+`specs/002-account-auth-onboarding/`. Registration creates a new zero-balance
+savings account; verifying either email or mobile is required before transfers.
+
 ## Fund Transfer Requirements
 
 - The transfer amount must be greater than Rs 0.
@@ -30,9 +34,22 @@ npm --prefix apps/web run build
 PostgreSQL integration tests run only against an empty localhost database named
 `simple_bank_test`, configured with `TEST_DATABASE_URL`. See
 [`specs/001-fund-transfer/quickstart.md`](specs/001-fund-transfer/quickstart.md)
-for integration scenarios and expected outcomes.
+for transfer integration scenarios and
+[`specs/002-account-auth-onboarding/quickstart.md`](specs/002-account-auth-onboarding/quickstart.md)
+for auth setup and scenarios.
 
-The default API app intentionally fails closed. A host must supply a trusted
-`CustomerContextProvider`, a `TransferVerifier`, and a configured transfer
-service; production identity and verification providers are not selected here.
-The Vite client proxies `/api` to `http://127.0.0.1:8000` during local development.
+When `DATABASE_URL` is configured, the API wires a database-backed customer
+session provider and auth service. Without it, protected actions fail closed.
+Set `AUTH_CODE_PEPPER` through a secret manager or local process environment;
+never commit its value. Email/SMS delivery and the production transfer-verification
+provider are not selected; contact verification and transfer acceptance fail
+closed until trusted adapters are configured. The Vite client proxies `/api` to
+`http://127.0.0.1:8000` during local development. Do not use `.env.example` as
+configuration until all of its values have been reviewed and replaced with
+synthetic placeholders.
+
+## Development ECS Deployment
+
+The API's dev-only ECS Fargate setup, including its in-memory SQLite limitations
+and GitHub Actions OIDC configuration, is documented in
+[`docs/aws-ecs-dev.md`](docs/aws-ecs-dev.md). It is not a production deployment.

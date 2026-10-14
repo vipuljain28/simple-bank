@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from simple_bank.api.schemas.transfers import TransferRequest, TransferResponse
 from simple_bank.domain.account_numbers import mask_account_number
+from simple_bank.domain.auth_errors import ContactVerificationRequired
 from simple_bank.domain.transfers import TransferCommand
-from simple_bank.security.context import AuthenticatedCustomer, get_authenticated_customer
+from simple_bank.api.security.csrf import require_session_csrf
+from simple_bank.security.context import AuthenticatedCustomer
 from simple_bank.services.transfer_service import TransferService
 
 
@@ -23,9 +25,11 @@ def get_transfer_service(request: Request) -> TransferService:
 @router.post("/transfers", response_model=TransferResponse, status_code=201)
 def create_transfer(
     payload: TransferRequest,
-    customer: AuthenticatedCustomer = Depends(get_authenticated_customer),
+    customer: AuthenticatedCustomer = Depends(require_session_csrf),
     service: TransferService = Depends(get_transfer_service),
 ) -> TransferResponse:
+    if not customer.transfer_eligible:
+        raise ContactVerificationRequired()
     result = service.execute(
         customer.customer_id,
         TransferCommand(

@@ -2,10 +2,18 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from simple_bank.domain.auth_errors import AuthError
 from simple_bank.domain.errors import TransferError
 
 
 async def transfer_error_response(request: Request, error: TransferError) -> JSONResponse:
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"error_code": error.code, "message": error.message},
+    )
+
+
+async def auth_error_response(request: Request, error: AuthError) -> JSONResponse:
     return JSONResponse(
         status_code=error.status_code,
         content={"error_code": error.code, "message": error.message},
