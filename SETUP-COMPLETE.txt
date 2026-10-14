@@ -1,0 +1,160 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║          ✅ UC-04 & UC-05 DEMO SETUP COMPLETE & READY TO RUN                ║
+║                                                                              ║
+║                  Simple Bank · Agentic AI · GHCP Course                      ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─ UC-04: Three-Agent Pattern (Planner → Coder → Reviewer) ─────────────────┐
+│                                                                             │
+│  Files Created:                                                             │
+│    ✅ .github/agents/planner.agent.md    (503 bytes)                       │
+│    ✅ .github/agents/coder.agent.md      (421 bytes)                       │
+│    ✅ .github/agents/reviewer.agent.md   (638 bytes)                       │
+│                                                                             │
+│  How to Run:                                                                │
+│    1. Open VS Code Copilot Chat                                            │
+│    2. Select "planner" agent                                               │
+│    3. Paste feature: "Mini Statement... last 10 transactions..."           │
+│    4. Click "Send to Coder"                                                │
+│    5. Watch agents collaborate                                             │
+│                                                                             │
+│  Duration: 25 minutes live demo                                            │
+│  Status: ✅ READY                                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ UC-05: Copilot Coding Agent + GitHub Integration ────────────────────────┐
+│                                                                             │
+│  Files Created:                                                             │
+│    ✅ UC-05-READY.md                    (What's ready + key points)        │
+│    ✅ UC-05-ISSUE-DETAILS.txt          (Copy-paste issue template)         │
+│    ✅ UC-05-SETUP.md                   (Full demo guide + timing)          │
+│    ✅ UC-05-INSTRUCTOR-CHECKLIST.md    (Detailed checklist + FAQ)          │
+│    ✅ UC-04-vs-UC-05-COMPARISON.md     (Pattern comparison)                │
+│    ✅ DEMO-INDEX.md                    (Master index & navigation)         │
+│                                                                             │
+│  How to Run:                                                                │
+│    Step 1 (0:00 - 3 min):  Create GitHub issue at                         │
+│      https://github.com/vipuljain28/simple-bank/issues/new                │
+│      Use: UC-05-ISSUE-DETAILS.txt for copy-paste                          │
+│      Title: "Block withdrawal if balance goes below Rs 1,000"             │
+│      Assign to: Copilot                                                    │
+│                                                                             │
+│    Step 2 (3:00 - 45:00): Teach concepts                                   │
+│      Agent works in background (10-20 minutes)                             │
+│                                                                             │
+│    Step 3 (45:00 - 70:00): Review PR                                       │
+│      Go to: Pull Requests tab                                              │
+│      Show: Session log + Code + Tests                                      │
+│      Review: For 3 test cases, Decimal, config                            │
+│      Approve or Request Changes                                            │
+│                                                                             │
+│  Duration: 25 minutes live review (agent works async)                      │
+│  Status: ✅ READY                                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Infrastructure Verified ──────────────────────────────────────────────────┐
+│                                                                             │
+│  ✅ Python 3.12+ configured                                               │
+│  ✅ Pytest available (tests/unit, tests/api)                              │
+│  ✅ Decimal support (SQLAlchemy + Pydantic)                               │
+│  ✅ GitHub Actions workflow (.github/workflows/deploy-api-dev.yml)        │
+│  ✅ Branch protection can be enabled                                      │
+│  ✅ Git repo ready (main branch)                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Demo Day Checklist ───────────────────────────────────────────────────────┐
+│                                                                             │
+│  Before Class:                                                              │
+│    ☐ Copilot coding agent ENABLED (Settings → Copilot)                   │
+│    ☐ Branch protection on main (1 approval required)                      │
+│    ☐ You can log into GitHub                                              │
+│    ☐ Network access to GitHub Actions                                     │
+│    ☐ Optional: Rehearse once (10–20 min)                                  │
+│                                                                             │
+│  During Demo:                                                               │
+│    ☐ [0:00] Create issue in GitHub (3 min)                                │
+│    ☐ [3:00] Teach concepts (42 min) - Agent works in background           │
+│    ☐ [45:00] Review PR (25 min)                                           │
+│    ☐ [70:00] "Agent or not?" discussion (7 min)                           │
+│    ☐ [77:00] Hands-on (40 min)                                            │
+│    ☐ [110:00] Discussion & wrap-up (10 min)                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Documentation Files Location ─────────────────────────────────────────────┐
+│                                                                             │
+│  Start Here:                                                                │
+│    👉 DEMO-INDEX.md          (Master navigation & quick links)             │
+│    👉 UC-05-READY.md         (Pre-demo checklist)                          │
+│                                                                             │
+│  For Demo Flow:                                                             │
+│    📋 UC-05-SETUP.md         (Step-by-step guide)                          │
+│    📋 UC-05-ISSUE-DETAILS.txt (Copy-paste issue template)                  │
+│    📋 UC-05-INSTRUCTOR-CHECKLIST.md (Troubleshooting + teaching points)    │
+│                                                                             │
+│  For Understanding:                                                         │
+│    📚 UC-04-vs-UC-05-COMPARISON.md (Pattern differences)                   │
+│                                                                             │
+│  Agent Configuration:                                                       │
+│    ⚙️  .github/agents/planner.agent.md                                     │
+│    ⚙️  .github/agents/coder.agent.md                                       │
+│    ⚙️  .github/agents/reviewer.agent.md                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Quick Copy-Paste: The GitHub Issue ───────────────────────────────────────┐
+│                                                                             │
+│  URL: https://github.com/vipuljain28/simple-bank/issues/new               │
+│                                                                             │
+│  TITLE:                                                                    │
+│  Block withdrawal if balance goes below Rs 1,000                          │
+│                                                                             │
+│  BODY:                                                                     │
+│  Savings accounts must keep a minimum balance of Rs 1,000.                │
+│  Rules:                                                                    │
+│  - A withdrawal or transfer is rejected if the balance after it would    │
+│    be less than Rs 1,000.                                               │
+│  - Error code: MIN_BALANCE_REQUIRED.                                    │
+│  - The minimum balance amount must come from configuration, not hard-   │
+│    coded.                                                               │
+│  Tests needed:                                                            │
+│  - Balance 5,000, withdraw 4,000 -> allowed (balance 1,000)             │
+│  - Balance 5,000, withdraw 4,001 -> rejected                           │
+│  - Balance 1,000, withdraw 1 -> rejected                               │
+│  Use Decimal. Do not change files in .github/.                          │
+│                                                                             │
+│  ASSIGNEE: Copilot                                                       │
+│                                                                             │
+│  See UC-05-ISSUE-DETAILS.txt for formatted version                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Key Teaching Points ──────────────────────────────────────────────────────┐
+│                                                                             │
+│  UC-04 (if time):                                                          │
+│    → How agents have different tools (read vs. edit)                      │
+│    → How handoffs work with human gates (send: false)                     │
+│    → Why Reviewer can't edit code                                         │
+│    → How agents respond to feedback                                       │
+│                                                                             │
+│  UC-05 (main focus):                                                       │
+│    → How to assign work to Copilot agent via GitHub                       │
+│    → Agents work in background (parallel learning)                        │
+│    → How to review agent PRs (session log, code, tests)                   │
+│    → Where humans must approve (click, merge)                             │
+│    → **Most Important**: Humans write rules; agents write code           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                          ✅ READY TO DEMO!                                   ║
+║                                                                              ║
+║               See DEMO-INDEX.md for complete navigation                     ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝

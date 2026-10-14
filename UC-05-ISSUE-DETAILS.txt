@@ -1,0 +1,44 @@
+UC-05 ISSUE — COPY AND PASTE INTO GITHUB
+==========================================
+
+TITLE:
+------
+Block withdrawal if balance goes below Rs 1,000
+
+
+BODY (Markdown):
+----------------
+Savings accounts must keep a minimum balance of Rs 1,000.
+
+Rules:
+
+- A withdrawal or transfer is rejected if the balance after it would be less than Rs 1,000.
+- Error code: MIN_BALANCE_REQUIRED.
+- The minimum balance amount must come from configuration, not hard-coded.
+
+Tests needed:
+
+- Balance 5,000, withdraw 4,000 -> allowed (balance 1,000)
+- Balance 5,000, withdraw 4,001 -> rejected
+- Balance 1,000, withdraw 1 -> rejected
+
+Use Decimal. Do not change files in .github/.
+
+
+STEPS TO CREATE:
+----------------
+1. Go to: https://github.com/vipuljain28/simple-bank/issues
+2. Click: "New issue"
+3. Paste title above
+4. Paste body above
+5. Click: "Assignees" dropdown
+6. Type: "copilot"
+7. Select: "Copilot"
+8. Click: "Submit new issue"
+
+EXPECTED:
+---------
+- Issue appears in list
+- Copilot comments within 1-2 minutes
+- Copilot creates a draft PR
+- Wait 10-20 minutes for agent to finish
