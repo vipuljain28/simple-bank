@@ -161,7 +161,7 @@ Implement the minimum balance validation logic that can be reused across all tra
 
 ### Tasks
 
-- [ ] T015 [US3] Enhance error message in `apps/api/src/simple_bank/api/error_mapping.py`:
+- [x] T015 [US3] Enhance error message in `apps/api/src/simple_bank/api/error_mapping.py`:
   - Error code: `MIN_BALANCE_REQUIRED`
   - Error message: "Transfer rejected: Account balance must remain at least Rs {min_balance}. Current balance: Rs {current_balance}, Amount requested: Rs {amount}, Balance after: Rs {balance_after}. (Account: {masked_account})"
   - All numeric values shown as Decimal with 2 places (e.g., Rs 1,000.00)
@@ -174,13 +174,13 @@ Implement the minimum balance validation logic that can be reused across all tra
   - Include `account_number` field (masked) in error response for context
   - Ensure response is machine-parseable for UI error handling
 
-- [ ] T017 [P] [US3] Write unit tests for error message clarity in `apps/api/tests/unit/test_minimum_balance_error_message.py`:
+- [x] T017 [P] [US3] Write unit tests for error message clarity in `apps/api/tests/unit/test_minimum_balance_error_message.py`:
   - Test: Error message includes all context (current balance, amount, resulting balance, threshold)
   - Test: No full account numbers in error message
   - Test: Decimal precision (2 places) in all numeric values
   - Test: Message is helpful and actionable (suggests reduce amount or add funds)
 
-- [ ] T018 [P] [US3] Write API tests for error response schema in `apps/api/tests/api/test_minimum_balance_error_response.py`:
+- [x] T018 [P] [US3] Write API tests for error response schema in `apps/api/tests/api/test_minimum_balance_error_response.py`:
   - Test: 400 response with correct status
   - Test: `error_code` field is `MIN_BALANCE_REQUIRED`
   - Test: `reason` field is `MIN_BALANCE_REQUIRED`

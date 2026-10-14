@@ -198,24 +198,24 @@ Implement the mini statement service with database queries and business logic.
 
 ### Tasks
 
-- [ ] T015 [US2] Enhance transaction type classification in `apps/api/src/simple_bank/services/mini_statement_service.py`:
+- [x] T015 [US2] Enhance transaction type classification in `apps/api/src/simple_bank/services/mini_statement_service.py`:
   - Add helper method `classify_transaction_type(transaction, account_number: str) -> str`:
     - If from_account == account_number: return "DEBIT"
     - If to_account == account_number: return "CREDIT"
     - Raise error if account is neither from/to (data consistency check)
   - Ensure type is always set before adding to response
 
-- [ ] T016 [US2] Add transaction type validation in `apps/api/src/simple_bank/api/schemas/mini_statement_schema.py`:
+- [x] T016 [US2] Add transaction type validation in `apps/api/src/simple_bank/api/schemas/mini_statement_schema.py`:
   - TransactionDetail.type must be Literal["DEBIT", "CREDIT"]
   - Add validator to ensure type is one of these two values (enum validation)
 
-- [ ] T017 [P] [US2] Write unit tests for transaction type classification in `apps/api/tests/unit/test_mini_statement_transaction_type.py`:
+- [x] T017 [P] [US2] Write unit tests for transaction type classification in `apps/api/tests/unit/test_mini_statement_transaction_type.py`:
   - Test: Transaction with from_account=account → type = "DEBIT"
   - Test: Transaction with to_account=account → type = "CREDIT"
   - Test: Verify "DEBIT" and "CREDIT" are the only allowed values
   - Test: Decimal precision in amount (no float representation)
 
-- [ ] T018 [P] [US2] Write integration tests for transaction direction in `apps/api/tests/integration/test_mini_statement_transaction_direction.py`:
+- [x] T018 [P] [US2] Write integration tests for transaction direction in `apps/api/tests/integration/test_mini_statement_transaction_direction.py`:
   - Create two accounts (A and B)
   - Transfer from A to B (amount 1000)
   - Fetch mini statement for A → should show one transaction with type="DEBIT"
@@ -223,7 +223,7 @@ Implement the mini statement service with database queries and business logic.
   - Verify both transactions reference the same transfer (via transaction_id)
   - Verify amount is the same in both perspectives (1000.00)
 
-- [ ] T019 [US2] Add description field to mini statement response:
+- [x] T019 [US2] Add description field to mini statement response:
   - Ensure each transaction includes `description` field
   - Description comes from Transaction.description (or generated if not stored)
   - Examples: "Transfer to John", "Transfer from Alice", "Salary Deposit"
