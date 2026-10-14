@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+from decimal import Decimal
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,7 @@ class Settings:
     sqlite_create_schema: bool = False
     public_origin: str | None = None
     mock_contact_verification: bool = False
+    min_balance_savings: Decimal = Decimal("1000.00")
 
     def __post_init__(self) -> None:
         if self.session_cookie_samesite not in {"lax", "strict", "none"}:
@@ -30,6 +32,8 @@ class Settings:
             raise ValueError(
                 "MOCK_CONTACT_VERIFICATION requires SQLite with SQLITE_CREATE_SCHEMA=true."
             )
+        if self.min_balance_savings < 0 or self.min_balance_savings.as_tuple().exponent != -2:
+            raise ValueError("MIN_BALANCE_SAVINGS must be non-negative with exactly 2 decimal places.")
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -40,6 +44,12 @@ class Settings:
             "yes",
             "on",
         }
+        min_balance_str = os.environ.get("MIN_BALANCE_SAVINGS", "1000.00").strip()
+        try:
+            min_balance = Decimal(min_balance_str)
+        except Exception:
+            raise ValueError(f"MIN_BALANCE_SAVINGS must be a valid decimal value, got: {min_balance_str}")
+        
         return cls(
             database_url=os.environ.get("DATABASE_URL"),
             session_cookie_name=os.environ.get("SESSION_COOKIE_NAME", "simple_bank_session"),
@@ -57,4 +67,5 @@ class Settings:
                 "MOCK_CONTACT_VERIFICATION", ""
             ).strip().lower()
             in {"1", "true", "yes", "on"},
+            min_balance_savings=min_balance,
         )

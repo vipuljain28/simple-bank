@@ -48,3 +48,9 @@ class Forbidden(TransferError):
     message = "You are not authorized to transfer from this account."
 
 
+class MinimumBalanceRequired(TransferError):
+    code = "MIN_BALANCE_REQUIRED"
+    status_code = 400
+    message = "Transfer rejected: balance would fall below minimum."
+
+

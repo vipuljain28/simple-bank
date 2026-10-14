@@ -4,12 +4,14 @@ from decimal import Decimal
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from simple_bank.config.minimum_balance import get_min_balance_threshold
 from simple_bank.domain.errors import (
     AccountInactive,
     DailyLimitExceeded,
     Forbidden,
     InsufficientBalance,
     InvalidAmount,
+    MinimumBalanceRequired,
     RequestIdConflict,
     SameAccount,
     VerificationRequired,
@@ -17,6 +19,7 @@ from simple_bank.domain.errors import (
 from simple_bank.domain.transfer_repository import TransferRepository
 from simple_bank.domain.transfers import TransferCommand, TransferRecord
 from simple_bank.security.verification import TransferVerifier
+from simple_bank.settings import Settings
 
 
 _INDIA = ZoneInfo("Asia/Kolkata")
@@ -29,10 +32,12 @@ class TransferService:
         repository: TransferRepository,
         verifier: TransferVerifier,
         *,
+        settings: Settings | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._verifier = verifier
+        self._settings = settings or Settings.from_environment()
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def execute(self, customer_id: str, command: TransferCommand) -> TransferRecord:
@@ -69,6 +74,11 @@ class TransferService:
                 raise AccountInactive()
             if sender.balance < command.amount:
                 raise InsufficientBalance()
+
+            min_balance_threshold = get_min_balance_threshold(self._settings)
+            from simple_bank.services.minimum_balance_service import is_balance_valid
+            if not is_balance_valid(sender.balance, command.amount, min_balance_threshold):
+                raise MinimumBalanceRequired()
 
             now = self._clock()
             if now.tzinfo is None or now.utcoffset() is None:
