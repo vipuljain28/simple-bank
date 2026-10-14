@@ -56,12 +56,12 @@ All accounts in Simple Bank must maintain a minimum balance of Rs 1,000. Before 
 ```text
 specs/003-minimum-balance-check/
 ├── spec.md                  # Feature specification ✅
-├── plan.md                  # This file (implementation plan)
-├── research.md              # Phase 0: Research & unknowns (to be generated)
-├── data-model.md            # Phase 1: Entity model (to be generated)
-├── quickstart.md            # Phase 1: Validation guide (to be generated)
+├── plan.md                  # This file (implementation plan) ✅
+├── research.md              # Phase 0: Research & unknowns ✅
+├── data-model.md            # Phase 1: Entity model ✅
+├── quickstart.md            # Phase 1: Validation guide ✅
 ├── contracts/
-│   └── transfer-errors.md   # Phase 1: Error response contract (to be generated)
+│   └── transfer-errors.md   # Phase 1: Error response contract ✅
 ├── CLARIFY-SUMMARY.md       # Clarifications from /speckit-clarify ✅
 └── checklists/
     └── requirements.md      # Quality checklist ✅
@@ -99,6 +99,259 @@ apps/web/
 └── src/features/transfers/
     └── TransferForm.tsx               # Existing; display MIN_BALANCE_REQUIRED errors
 ```
+
+## Design Artifacts
+
+### Phase 0: Research (Completed)
+
+**Deliverable**: `research.md`
+
+**Contents**:
+- Resolution of all technical ambiguities (account type scope, configuration parameter, account masking)
+- Dependency analysis (all existing; no new dependencies)
+- Integration points (transfer service, configuration loading, error response schema)
+- Technology recommendations (Decimal arithmetic, configuration strategy, error format)
+- Testing strategy (unit, integration, API contract, manual)
+- Risk mitigation plan
+
+**Status**: ✅ **COMPLETE**
+
+---
+
+### Phase 1: Design (Completed)
+
+#### Artifact 1: Data Model (`data-model.md`)
+
+**Entities Defined**:
+- **Account** (existing; updated with minimum balance validation rules)
+- **Transfer Request** (existing; new validation rules added)
+- **Configuration Parameter** (new; stores MIN_BALANCE_SAVINGS)
+- **Error Response Schema** (new; returned on validation failure)
+
+**State Transitions**:
+- Transfer lifecycle with minimum balance gate (PENDING → APPROVED or REJECTED)
+
+**Validation Rules**:
+- Decimal precision to paisa (2 decimal places)
+- Account masking format (XXXX1234)
+- Configuration parameter loading (env var or database)
+
+**Relationships**:
+- Account ↔ TransferRequest (1:Many)
+- Global Configuration ↔ MIN_BALANCE_SAVINGS (1:1)
+
+**Indexing Strategy**: Balance queries, account lookups, transfer status filtering
+
+**Status**: ✅ **COMPLETE** (7.9 KB)
+
+---
+
+#### Artifact 2: API Contract (`contracts/transfer-errors.md`)
+
+**Endpoint**: POST /api/v1/transfers (existing endpoint; new validation)
+
+**Error Response (422 Unprocessable Entity)**:
+
+```json
+{
+  "error_code": "MIN_BALANCE_REQUIRED",
+  "message": "Transfer rejected: insufficient balance in account XXXX1234. Minimum balance of Rs 1,000.00 required.",
+  "details": {
+    "account": "XXXX1234",
+    "current_balance": "5000.00",
+    "requested_amount": "4001.00",
+    "balance_after": "999.00",
+    "minimum_required": "1000.00"
+  }
+}
+```
+
+**Field Specifications**:
+- All monetary amounts as Decimal-formatted strings (2 places)
+- Account always masked (XXXX format)
+- Status code: 422 (not 400, not 403)
+
+**Test Scenarios**:
+- Transfer at threshold (allowed): 5,000 → 4,000 = 1,000 ✅
+- Transfer below threshold (rejected): 5,000 → 4,001 = 999 ❌
+- Exact minimum + 1: 1,000 → 1 = 999 ❌
+- Paisa precision: 1,000 → 0.01 = 999.99 ❌
+
+**Status**: ✅ **COMPLETE** (6.8 KB)
+
+---
+
+#### Artifact 3: Quickstart Validation Guide (`quickstart.md`)
+
+**Purpose**: Runnable end-to-end validation scenarios
+
+**Test Cases**:
+1. Transfer at threshold (allowed)
+2. Transfer below threshold (rejected)
+3. Exact minimum + small withdrawal (rejected)
+4. Paisa precision (rejected)
+5. Configuration parameter testing (override MIN_BALANCE_SAVINGS)
+6. Account masking verification
+
+**Validation Method**:
+- Manual curl commands for each scenario
+- Automated pytest test suite
+- Web UI manual validation
+- Coverage and success criteria
+
+**Status**: ✅ **COMPLETE** (9.6 KB)
+
+---
+
+## Post-Phase 1 Constitution Check
+
+*GATE: Must pass before proceeding to Phase 2 (Task generation).*
+
+✅ **Principle I (Exact Monetary Arithmetic)**: 
+- Data model uses Decimal type throughout
+- Contract specifies Decimal-formatted strings for all amounts
+- Quickstart tests verify paisa precision (0.01)
+- ✅ PASS
+
+✅ **Principle II (Account Data Confidentiality)**:
+- Data model documents account masking rules
+- Contract specifies XXXX1234 format in error responses
+- Quickstart includes account masking verification test
+- ✅ PASS
+
+✅ **Principle III (Every Rule Has a Test)**:
+- Spec includes 6 acceptance scenarios
+- Data model lists 4 edge cases
+- Quickstart includes 4 automated test cases + 6 verification checks
+- ✅ PASS
+
+✅ **Principle IV (Versioned API Contract)**:
+- Contract defined for /api/v1/transfers endpoint
+- Error code MIN_BALANCE_REQUIRED is standardized
+- Response schema is versioned
+- ✅ PASS
+
+✅ **Principle V (React Web Client Uses the API)**:
+- Web UI integration mentioned in project structure
+- Error message format is user-friendly (not machine-readable error code)
+- Quickstart includes Web UI manual validation scenario
+- ✅ PASS
+
+**Gate Status**: ✅ **CLEAR** — Design passes all constitutional principles. Ready for Phase 2.
+
+---
+
+## Design Decisions Summary
+
+| Decision | Choice | Rationale | Alternatives Rejected |
+|----------|--------|-----------|----------------------|
+| Minimum balance scope | Apply to ALL account types | Clarity from /speckit-clarify; simpler implementation | Account-type-specific thresholds |
+| Configuration location | Env var → Database → Default (1000.00) | Flexibility (env override) + persistence (DB) + fallback | Hard-coded constant; single source only |
+| Data type for amounts | Python Decimal | Constitution Principle I; exact arithmetic; project standard | Float (loses precision); int (no fractional rupees) |
+| Error HTTP status | 422 Unprocessable Entity | Semantic correctness (rule violation, not bad input) | 400 Bad Request; 403 Forbidden |
+| Account masking format | XXXX{last_4_digits} | Industry standard (credit cards); Constitution Principle II | Full account number; just UUID |
+| Configuration parameter name | MIN_BALANCE_SAVINGS | Explicit; domain-clear; allows future MIN_BALANCE_CHECKING | MIN_BAL; MINIMUM_BALANCE; MIN_BALANCE_ALL |
+
+---
+
+## Next Steps
+
+### Immediate (End of Phase 1)
+
+- ✅ Design artifacts completed (data-model.md, contracts/, quickstart.md, research.md)
+- ✅ Constitution check passed
+- → **Proceed to Phase 2**: Run `/speckit-tasks` to generate implementation task breakdown
+
+### Phase 2 (Task Generation)
+
+**Command**: `/speckit-tasks spec 003`
+
+**Output**: `tasks.md` with dependency-ordered implementation tasks
+
+**Typical tasks** (generated by /speckit-tasks):
+1. Add MIN_BALANCE_SAVINGS to settings.py
+2. Create MinimumBalanceViolation error class
+3. Implement validation logic in transfer service
+4. Add 422 error response handler in API routes
+5. Write unit tests for validation
+6. Write integration tests for error responses
+7. Write E2E tests via web UI
+8. Update API documentation
+
+### Phase 3 (Implementation)
+
+**Command**: `/speckit-implement tasks 003`
+
+**Input**: tasks.md from Phase 2
+
+**Output**: Fully implemented feature with tests passing
+
+---
+
+## Success Criteria
+
+Feature implementation is complete when:
+
+- [ ] All tests pass: `pytest apps/api/tests/ -v`
+- [ ] Code coverage: ≥90% for minimum balance validation logic
+- [ ] Contract verified: 422 response format matches `contracts/transfer-errors.md`
+- [ ] Quickstart guide runs successfully end-to-end
+- [ ] Account masking verified: No full account number in responses/logs
+- [ ] Configuration tested: MIN_BALANCE_SAVINGS can be overridden
+- [ ] Web UI updated: Error message displays to user
+- [ ] PR created and passes CI/CD checks
+- [ ] Human approval obtained before merge
+
+---
+
+## Files Generated in Phase 1
+
+| File | Size | Purpose |
+|------|------|---------|
+| `research.md` | 11.1 KB | Technical validation; dependency analysis |
+| `data-model.md` | 8.1 KB | Entity definitions; validation rules; relationships |
+| `contracts/transfer-errors.md` | 6.8 KB | API error response specification |
+| `quickstart.md` | 9.6 KB | End-to-end validation scenarios |
+| `plan.md` | This file | Implementation roadmap |
+
+**Total Documentation**: ~43.5 KB
+
+---
+
+## Appendix: Git Branch & CI/CD
+
+**Branch Name**: `003-minimum-balance-check`
+
+**Branch Workflow**:
+
+```bash
+# Start from main
+git checkout main
+git pull origin main
+
+# Create feature branch
+git checkout -b 003-minimum-balance-check
+
+# After tasks generated:
+# - Make commits following task breakdown
+# - Push to origin
+# - Open PR (CI/CD runs automatically)
+# - Request review (human review before merge)
+# - Merge to main only after approval
+```
+
+**CI/CD Pipeline** (automatic on PR):
+
+1. Lint: `black --check apps/api/` (Python formatting)
+2. Type check: `mypy apps/api/src/` (static type analysis)
+3. Unit tests: `pytest apps/api/tests/unit/ -v` (validation logic)
+4. Integration tests: `pytest apps/api/tests/integration/ -v` (with database)
+5. Coverage: `pytest apps/api/tests/ --cov=simple_bank --cov-report=term-missing` (≥90%)
+
+**Branch Protection**: Main branch requires ≥1 approval + all checks passing before merge.
+
+---
+
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real
