@@ -42,7 +42,7 @@ Set up Pydantic response schemas for the mini statement API.
 
 ---
 
-- [ ] T001 Create response schemas in `apps/api/src/simple_bank/api/schemas/mini_statement_schema.py`:
+- [x] T001 Create response schemas in `apps/api/src/simple_bank/api/schemas/mini_statement_schema.py`:
   - Define `TransactionDetail` schema with fields:
     - `timestamp: str` (ISO 8601 format, e.g., "2026-10-14T15:30:45+05:30")
     - `description: str`
@@ -57,12 +57,12 @@ Set up Pydantic response schemas for the mini statement API.
   - Add validation: amount and balance_after match Decimal pattern (2 places)
   - Add config examples showing proper masking and formatting
 
-- [ ] T002 Add error response schemas in `apps/api/src/simple_bank/api/schemas/error_schema.py` (or extend existing):
+- [x] T002 Add error response schemas in `apps/api/src/simple_bank/api/schemas/error_schema.py` (or extend existing):
   - 401 Unauthorized response: `error: "UNAUTHORIZED"`, `message: string`
   - 404 Not Found response: `error: "NOT_FOUND"`, `message: "Account not found"`
   - Ensure consistent error format across API
 
-- [ ] T003 [P] Write unit tests for response schemas in `apps/api/tests/unit/test_mini_statement_schemas.py`:
+- [x] T003 [P] Write unit tests for response schemas in `apps/api/tests/unit/test_mini_statement_schemas.py`:
   - Test: Valid MiniStatementResponse serializes correctly
   - Test: Decimal values are strings with 2 places (no float representation)
   - Test: Account number is masked (XXXX + 4 digits)
@@ -88,7 +88,7 @@ Implement the mini statement service with database queries and business logic.
 
 ---
 
-- [ ] T004 Create mini statement service in `apps/api/src/simple_bank/services/mini_statement_service.py` with:
+- [x] T004 Create mini statement service in `apps/api/src/simple_bank/services/mini_statement_service.py` with:
   - `get_mini_statement(account_number: str, customer_id: str) -> MiniStatementResponse | None`
   - Verify account exists and belongs to customer (return None if unauthorized or not found)
   - Query Account table: `SELECT account_number, balance FROM accounts WHERE account_number = ? AND customer_id = ? AND status = 'ACTIVE'`
@@ -101,20 +101,20 @@ Implement the mini statement service with database queries and business logic.
   - Calculate balance_after for each transaction (see data-model.md for algorithm)
   - Return MiniStatementResponse with all fields populated
 
-- [ ] T005 [P] Add timestamp conversion utility in `apps/api/src/simple_bank/domain/timestamps.py`:
+- [x] T005 [P] Add timestamp conversion utility in `apps/api/src/simple_bank/domain/timestamps.py`:
   - Create `to_ist_iso8601(dt: datetime) -> str` function
   - Converts UTC or timezone-aware datetime to IST (Asia/Kolkata)
   - Formats as ISO 8601 with explicit +05:30 offset
   - Handles None/missing timestamps gracefully
   - Uses `zoneinfo.ZoneInfo` or `pytz` for IST conversion
 
-- [ ] T006 [P] Add account masking utility in `apps/api/src/simple_bank/domain/account_numbers.py` (or extend existing):
+- [x] T006 [P] Add account masking utility in `apps/api/src/simple_bank/domain/account_numbers.py` (or extend existing):
   - Create `mask_account_number(account_number: str) -> str` function
   - Returns "XXXX" + last 4 digits of account number
   - Handles edge cases: account numbers shorter than 4 characters (pad with X's)
   - Consistent with Principle II (Account Data Confidentiality)
 
-- [ ] T007 [P] Write unit tests for mini statement service in `apps/api/tests/unit/test_mini_statement_service.py`:
+- [x] T007 [P] Write unit tests for mini statement service in `apps/api/tests/unit/test_mini_statement_service.py`:
   - Test: Account exists and belongs to customer → returns MiniStatementResponse with correct balance and transactions
   - Test: Account belongs to different customer → returns None (not found)
   - Test: Non-existent account → returns None
@@ -138,7 +138,7 @@ Implement the mini statement service with database queries and business logic.
 
 ### Tasks
 
-- [ ] T008 [US1] Create mini statement route in `apps/api/src/simple_bank/api/routes/mini_statement.py`:
+- [x] T008 [US1] Create mini statement route in `apps/api/src/simple_bank/api/routes/mini_statement.py`:
   - Define `GET /api/v1/accounts/{account_number}/mini-statement` endpoint
   - Extract customer_id from authenticated session
   - Extract account_number from URL path
@@ -147,12 +147,12 @@ Implement the mini statement service with database queries and business logic.
   - If returns MiniStatementResponse: return 200 with response body
   - Handle 401 Unauthorized if customer not authenticated (missing token)
 
-- [ ] T009 [US1] Register mini statement route in FastAPI app in `apps/api/src/simple_bank/api/app.py`:
+- [x] T009 [US1] Register mini statement route in FastAPI app in `apps/api/src/simple_bank/api/app.py`:
   - Import mini_statement routes
   - Add router to FastAPI app: `app.include_router(mini_statement_router)`
   - Verify endpoint is accessible at `/api/v1/accounts/{account_number}/mini-statement`
 
-- [ ] T010 [P] [US1] Write API tests for mini statement happy path in `apps/api/tests/api/test_mini_statement_api.py`:
+- [x] T010 [P] [US1] Write API tests for mini statement happy path in `apps/api/tests/api/test_mini_statement_api.py`:
   - Test: Authenticated customer fetches own account → 200 OK with MiniStatementResponse
   - Test: Response schema is valid (account_number, current_balance, transactions)
   - Test: Transactions are ordered newest first (by timestamp DESC)
@@ -160,13 +160,13 @@ Implement the mini statement service with database queries and business logic.
   - Test: All decimal values are strings with 2 places
   - Test: All timestamps are ISO 8601 IST format
 
-- [ ] T011 [P] [US1] Write API tests for mini statement authorization in `apps/api/tests/api/test_mini_statement_auth.py`:
+- [x] T011 [P] [US1] Write API tests for mini statement authorization in `apps/api/tests/api/test_mini_statement_auth.py`:
   - Test: Customer A attempts to fetch Customer B's account → 404 Not Found
   - Test: Same error response as non-existent account (prevents enumeration)
   - Test: No authenticated session → 401 Unauthorized
   - Test: Invalid token → 401 Unauthorized
 
-- [ ] T012 [P] [US1] Write integration tests for mini statement in `apps/api/tests/integration/test_mini_statement_db.py`:
+- [x] T012 [P] [US1] Write integration tests for mini statement in `apps/api/tests/integration/test_mini_statement_db.py`:
   - PostgreSQL backend: Create account with 5 transactions
   - Fetch mini statement → 200 OK
   - Verify account_number is masked
@@ -174,13 +174,13 @@ Implement the mini statement service with database queries and business logic.
   - Verify transactions are ordered newest first (by created_at DESC)
   - Verify all transaction fields present and correct (timestamp, description, type, amount, balance_after)
 
-- [ ] T013 [P] [US1] Write integration test for empty account in `apps/api/tests/integration/test_mini_statement_empty.py`:
+- [x] T013 [P] [US1] Write integration test for empty account in `apps/api/tests/integration/test_mini_statement_empty.py`:
   - Create account with 0 transactions
   - Fetch mini statement → 200 OK
   - Verify current_balance is returned
   - Verify transactions array is empty []
 
-- [ ] T014 [P] [US1] Write integration test for large transaction history in `apps/api/tests/integration/test_mini_statement_limit.py`:
+- [x] T014 [P] [US1] Write integration test for large transaction history in `apps/api/tests/integration/test_mini_statement_limit.py`:
   - Create account with 25 transactions (via database insert or transfer loop)
   - Fetch mini statement → 200 OK
   - Verify transactions.length == 10

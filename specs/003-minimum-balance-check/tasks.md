@@ -43,11 +43,11 @@ Set up configuration management for the minimum balance threshold.
 
 ---
 
-- [ ] T001 Add MIN_BALANCE_SAVINGS configuration parameter to `apps/api/src/simple_bank/settings.py` with default value of Decimal('1000.00') and type validation (Decimal, 2 places, non-negative)
+- [x] T001 Add MIN_BALANCE_SAVINGS configuration parameter to `apps/api/src/simple_bank/settings.py` with default value of Decimal('1000.00') and type validation (Decimal, 2 places, non-negative)
 
-- [ ] T002 Create configuration loading utility in `apps/api/src/simple_bank/config/minimum_balance.py` to safely load and cache the minimum balance threshold from environment variable `MIN_BALANCE_SAVINGS` or default from settings
+- [x] T002 Create configuration loading utility in `apps/api/src/simple_bank/config/minimum_balance.py` to safely load and cache the minimum balance threshold from environment variable `MIN_BALANCE_SAVINGS` or default from settings
 
-- [ ] T003 Add environment variable documentation in `.env.example` with `MIN_BALANCE_SAVINGS=1000.00` commented example
+- [x] T003 Add environment variable documentation in `.env.example` with `MIN_BALANCE_SAVINGS=1000.00` commented example
 
 ---
 
@@ -63,18 +63,18 @@ Implement the minimum balance validation logic that can be reused across all tra
 
 ---
 
-- [ ] T004 Create minimum balance validation service in `apps/api/src/simple_bank/services/minimum_balance_service.py` with:
+- [x] T004 Create minimum balance validation service in `apps/api/src/simple_bank/services/minimum_balance_service.py` with:
   - `is_balance_valid(current_balance: Decimal, amount_to_transfer: Decimal, min_balance_threshold: Decimal) -> bool` function
   - Returns True if (current_balance - amount_to_transfer) >= min_balance_threshold
   - Performs all calculations with Decimal type and 2-place precision
   - Handles edge cases: amount=0, amount negative, balance equals threshold
 
-- [ ] T005 [P] Create error code definition in `apps/api/src/simple_bank/api/error_mapping.py`:
+- [x] T005 [P] Create error code definition in `apps/api/src/simple_bank/api/error_mapping.py`:
   - Add error code `MIN_BALANCE_REQUIRED` with status 400 (Bad Request)
   - Error message template: "Transfer rejected: balance would fall below minimum of Rs {min_balance} (Account: {masked_account})"
   - Ensure masked account number is used per Principle II
 
-- [ ] T006 [P] Write unit tests for minimum balance validation in `apps/api/tests/unit/test_minimum_balance_service.py`:
+- [x] T006 [P] Write unit tests for minimum balance validation in `apps/api/tests/unit/test_minimum_balance_service.py`:
   - Test: balance 5000, transfer 4000, min 1000 → valid (balance after = 1000, equals minimum)
   - Test: balance 5000, transfer 4001, min 1000 → invalid (balance after = 999, below minimum)
   - Test: balance 1000, transfer 1, min 1000 → invalid (balance after = 999, below minimum)
@@ -92,26 +92,26 @@ Implement the minimum balance validation logic that can be reused across all tra
 
 ### Tasks
 
-- [ ] T007 [US1] Integrate minimum balance check into existing transfer service at `apps/api/src/simple_bank/services/transfer_service.py`:
+- [x] T007 [US1] Integrate minimum balance check into existing transfer service at `apps/api/src/simple_bank/services/transfer_service.py`:
   - Load min_balance_threshold from configuration via `minimum_balance_service`
   - Before accepting a transfer, validate: `is_balance_valid(from_account.balance, amount, threshold)`
   - If validation fails, raise error with code `MIN_BALANCE_REQUIRED`
   - Ensure transfer is NOT persisted if minimum balance would be violated
   - Preserve existing atomicity (all-or-nothing: balance changes + transaction record)
 
-- [ ] T008 [US1] Update transfer API endpoint in `apps/api/src/simple_bank/api/routes/transfers.py`:
+- [x] T008 [US1] Update transfer API endpoint in `apps/api/src/simple_bank/api/routes/transfers.py`:
   - Call updated transfer service
   - Handle `MIN_BALANCE_REQUIRED` error and return 400 with appropriate error response
   - Error response includes: error code, message with masked account number, and remediation hint
 
-- [ ] T009 [P] [US1] Write API tests for minimum balance rejection in `apps/api/tests/api/test_transfer_minimum_balance.py`:
+- [x] T009 [P] [US1] Write API tests for minimum balance rejection in `apps/api/tests/api/test_transfer_minimum_balance.py`:
   - Test: Happy path - transfer leaving balance at minimum (e.g., 5000 → 1000) → 200 OK
   - Test: Rejection path - transfer below minimum (e.g., 5000 → 999) → 400 with `MIN_BALANCE_REQUIRED`
   - Test: Rejection with masked account in error message (no full account number exposed)
   - Test: Transfer of Rs 0.01 below minimum → rejected
   - Test: Multiple accounts - minimum applies per account independently
 
-- [ ] T010 [P] [US1] Write integration tests for minimum balance in `apps/api/tests/integration/test_transfer_minimum_balance_db.py`:
+- [x] T010 [P] [US1] Write integration tests for minimum balance in `apps/api/tests/integration/test_transfer_minimum_balance_db.py`:
   - PostgreSQL backend: Insert test account with balance 5000, transfer 4000, verify acceptance
   - PostgreSQL backend: Insert test account with balance 5000, transfer 4001, verify rejection and balance unchanged
   - Verify transaction is NOT created when minimum balance would be violated
@@ -128,24 +128,24 @@ Implement the minimum balance validation logic that can be reused across all tra
 
 ### Tasks
 
-- [ ] T011 [US2] Add minimum balance configuration property to Account domain model in `apps/api/src/simple_bank/domain/account.py` (or reference):
+- [x] T011 [US2] Add minimum balance configuration property to Account domain model in `apps/api/src/simple_bank/domain/account.py` (or reference):
   - Ensure Account model can retrieve the configured minimum balance threshold
   - Configuration is loaded once per application startup and cached
   - Configuration can be overridden at runtime for testing
 
-- [ ] T012 [US2] Create configuration change detection mechanism in `apps/api/src/simple_bank/config/minimum_balance.py`:
+- [x] T012 [US2] Create configuration change detection mechanism in `apps/api/src/simple_bank/config/minimum_balance.py`:
   - Implement `get_min_balance_threshold()` function that re-reads environment on each call (for dynamic updates in testing)
   - OR cache with time-based refresh (configurable TTL)
   - Document the chosen strategy in code comments
 
-- [ ] T013 [P] [US2] Write configuration tests in `apps/api/tests/unit/test_minimum_balance_config.py`:
+- [x] T013 [P] [US2] Write configuration tests in `apps/api/tests/unit/test_minimum_balance_config.py`:
   - Test: Default configuration returns Rs 1,000.00
   - Test: Environment variable override (set `MIN_BALANCE_SAVINGS=5000.00`) → loads 5,000.00
   - Test: Invalid configuration (negative number, non-Decimal) → fails gracefully with clear error
   - Test: Configuration change between transfers → new value applied
   - Test: Thread safety (concurrent reads of configuration value)
 
-- [ ] T014 [P] [US2] Write integration test for configuration changes in `apps/api/tests/integration/test_minimum_balance_config_change.py`:
+- [x] T014 [P] [US2] Write integration test for configuration changes in `apps/api/tests/integration/test_minimum_balance_config_change.py`:
   - Deploy with MIN_BALANCE=1000, execute transfer leaving balance 1000 → accepted
   - Change MIN_BALANCE=5000 (environment or config file)
   - Execute new transfer that would leave balance 4999 → rejected with new threshold
