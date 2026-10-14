@@ -1,6 +1,5 @@
 """Mini statement API routes."""
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
 
 from simple_bank.api.schemas.mini_statement_schema import MiniStatementResponse
 from simple_bank.domain.errors import NotFound
@@ -12,16 +11,18 @@ router = APIRouter()
 
 
 def get_mini_statement_service(request: Request) -> MiniStatementService:
-    """Get mini statement service from application state."""
-    service: MiniStatementService | None = getattr(
-        request.app.state, "mini_statement_service", None
-    )
-    if service is None:
+    """Get mini statement service from application state.
+    
+    Creates a new service instance with a session for this request.
+    """
+    session_factory = getattr(request.app.state, "session_factory", None)
+    if session_factory is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Mini statement service is not configured.",
         )
-    return service
+    session = session_factory()
+    return MiniStatementService(session)
 
 
 @router.get(
@@ -61,3 +62,4 @@ def get_mini_statement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Account not found.",
         )
+

@@ -28,6 +28,7 @@ from simple_bank.settings import Settings
 def create_app(
     *,
     transfer_service: TransferService | None = None,
+    mini_statement_service: MiniStatementService | None = None,
     customer_context_provider: CustomerContextProvider | None = None,
     auth_service: CustomerAuthService | None = None,
     contact_delivery: ContactDelivery | None = None,
@@ -44,6 +45,7 @@ def create_app(
         include_in_schema=False,
     )
     auth_repository = None
+    session_factory = None
     if resolved_settings.database_url:
         engine = create_database_engine(resolved_settings.database_url)
         if resolved_settings.sqlite_create_schema:
@@ -70,13 +72,18 @@ def create_app(
                 SqlAlchemyTransferRepository(session_factory),
                 RejectingTransferVerifier(),
             )
+        if mini_statement_service is None and session_factory is not None:
+            # Create a wrapper that provides session per request
+            mini_statement_service = _MiniStatementServiceFactory(session_factory)
     application.state.transfer_service = transfer_service
+    application.state.mini_statement_service = mini_statement_service
     application.state.customer_context_provider = customer_context_provider
     application.state.auth_service = auth_service
     application.state.contact_delivery = contact_delivery
     application.state.auth_repository = auth_repository
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(transfers_router, prefix="/api/v1")
+    application.include_router(mini_statement_router, prefix="/api/v1")
     application.add_exception_handler(TransferError, transfer_error_response)
     application.add_exception_handler(AuthError, auth_error_response)
     application.add_exception_handler(RequestValidationError, request_validation_response)
