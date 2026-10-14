@@ -35,7 +35,7 @@ class TestMiniStatementService:
         """Test: Accessing another customer's account raises NotFound (enumeration prevention)."""
         # Account exists but belongs to different customer
         account = Mock(spec=Account)
-        account.user_id = "customer-002"
+        account.customer_id = "customer-002"
         account.balance = Decimal("5000.00")
         
         mock_db.execute.return_value.scalar_one_or_none.return_value = account
@@ -46,7 +46,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_empty_account(self, service, mock_db):
         """Test: Account with no transactions returns empty list."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("5000.00")
         
         # First call for account lookup, second for transfers
@@ -62,7 +62,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_single_debit_transaction(self, service, mock_db):
         """Test: DEBIT transaction (money out) is classified correctly."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("4000.00")
         
         transfer = Mock(spec=Transaction)
@@ -106,7 +106,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_single_credit_transaction(self, service, mock_db):
         """Test: CREDIT transaction (money in) is classified correctly."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("6000.00")
         
         transfer = Mock(spec=Transaction)
@@ -147,7 +147,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_multiple_transactions_newest_first(self, service, mock_db):
         """Test: Transactions are ordered newest first."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("3000.00")
         
         # Three transactions in chronological order
@@ -212,7 +212,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_max_10_transactions(self, service, mock_db):
         """Test: Service respects 10-transaction limit from database query."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("5000.00")
         
         # Create 10 mock transfers
@@ -252,7 +252,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_account_number_masking(self, service, mock_db):
         """Test: Account number is masked in response."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("5000.00")
         
         mock_db.execute.return_value.scalar_one_or_none.return_value = account
@@ -266,7 +266,7 @@ class TestMiniStatementService:
     def test_get_mini_statement_decimal_precision(self, service, mock_db):
         """Test: All amounts use exactly 2 decimal places."""
         account = Mock(spec=Account)
-        account.user_id = "customer-001"
+        account.customer_id = "customer-001"
         account.balance = Decimal("5000.00")
         
         transfer = Mock(spec=Transaction)
@@ -305,5 +305,6 @@ class TestMiniStatementService:
         assert response.current_balance.count(".") == 1
         parts = response.current_balance.split(".")
         assert len(parts[1]) == 2
+
 
 

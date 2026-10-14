@@ -41,8 +41,7 @@ class MiniStatementService:
             MiniStatementResponse with account info and last 10 transactions.
             
         Raises:
-            Unauthorized: If user is not the account owner.
-            NotFound: If account does not exist (indistinguishable from unauthorized).
+            NotFound: If account does not exist or user is not the account owner.
         """
         # Query account with its transactions, ordered by newest first
         account = self.db.execute(
@@ -55,7 +54,7 @@ class MiniStatementService:
             raise NotFound(f"Account not found")
         
         # Check if authenticated user owns this account
-        if account.user_id != authenticated_user_id:
+        if account.customer_id != authenticated_user_id:
             # Return 404 even if unauthorized to prevent enumeration
             raise NotFound(f"Account not found")
         
